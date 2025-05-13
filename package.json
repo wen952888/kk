@@ -8,13 +8,13 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1",        # For password hashing
-    "express": "^4.19.2",       # Web framework
-    "socket.io": "^4.7.5",    # Real-time communication
-    "uuid": "^9.0.1"          # For unique IDs
+    "bcrypt": "^5.1.1",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"       # Optional: for auto-restarting server during dev
+    "nodemon": "^3.1.0"
   },
   "author": "wenge95222",
   "license": "ISC"
