@@ -5,7 +5,8 @@ html, body {
     padding: 0;
     overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-    background-color: #e0e0e0; /* 全局浅灰色背景 */
+    background-color: #333; /* 深色背景，更像牌桌感觉 */
+    color: #f0f0f0; /* 全局文字浅色 */
     font-size: 16px;
 }
 
@@ -15,9 +16,9 @@ html, body {
 .view-flex { display: flex !important; flex-direction: column; }
 .overlay.view-flex { justify-content: center; align-items: center; }
 
-.view { /* 登录、大厅等视图的通用容器 */
-    background-color: #f5f5f5; /* 视图区域使用更浅一点的灰色，或与body同色 */
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+.view {
+    background-color: rgba(255, 255, 255, 0.1); /* 轻微透明，让深色背景透出 */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     border-radius: 10px;
     margin: 20px auto;
     padding: 25px;
@@ -26,230 +27,296 @@ html, body {
 
 #loginRegisterView, #lobbyView, #loadingView {
     width: 90%;
-    max-width: 700px;
+    max-width: 600px; /* 登录/大厅视图可以窄一些 */
+    color: #333; /* 登录/大厅文字用深色 */
 }
-#loadingView.view-block { text-align: center; padding-top: 50px; font-size: 1.2em; color: #555; }
+#loadingView.view-block { text-align: center; padding-top: 50px; font-size: 1.2em; color: #ccc; }
 
 #authFormContainer { display: flex; flex-wrap: wrap; justify-content: space-around; margin-bottom: 20px; gap: 20px; }
-.formSection { border: none; padding: 20px; border-radius: 8px; width: 100%; max-width: 320px; box-sizing: border-box; background-color: #efefef; }
+.formSection { border: none; padding: 20px; border-radius: 8px; width: 100%; max-width: 300px; box-sizing: border-box; background-color: rgba(255,255,255,0.8); }
 .formSection h3 { margin-top: 0; color: #333; }
-input[type="text"], input[type="password"], input[type="tel"] { display: block; width: calc(100% - 22px); padding: 12px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em; background-color: #fff; }
+input[type="text"], input[type="password"], input[type="tel"] { display: block; width: calc(100% - 22px); padding: 12px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em; background-color: #fff; color: #333;}
 button { padding: 12px 18px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; transition: background-color 0.2s ease; margin: 5px 0; }
 button:hover { background-color: #0056b3; }
-button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
+button:disabled { background-color: #aaa; cursor: not-allowed; color: #ddd; }
 .inline-button { padding: 5px 10px; font-size: 0.85em; margin-left: 10px; vertical-align: middle; }
-#roomList { border: 1px solid #ddd; padding: 10px; min-height: 150px; max-height: 350px; overflow-y: auto; margin-top: 15px; background-color: #f0f0f0; border-radius: 5px; }
-.room-item { border-bottom: 1px solid #e0e0e0; padding: 10px 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;}
-.room-item:last-child { border-bottom: none; } .room-item span { margin-right: 10px; color: #333; }
-.room-item .status-waiting { color: #fd7e14; font-weight: bold; } .room-item .status-playing { color: #dc3545; font-weight: bold; } .room-item .status-finished { color: #6c757d; }
-.message { margin-top: 15px; font-weight: bold; text-align: center; font-size: 0.9em; min-height: 1.2em; padding: 8px; border-radius: 5px; color: #444;}
-.message.error { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
-.message.success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
+#roomList { border: 1px solid #444; padding: 10px; min-height: 150px; max-height: 350px; overflow-y: auto; margin-top: 15px; background-color: rgba(255,255,255,0.05); border-radius: 5px; }
+.room-item { border-bottom: 1px solid #555; padding: 10px 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; color: #ccc;}
+.room-item:last-child { border-bottom: none; } .room-item span { margin-right: 10px; }
+.room-item .status-waiting { color: #ffc107; } .room-item .status-playing { color: #ff6b6b; } .room-item .status-finished { color: #888; }
+.message { margin-top: 15px; font-weight: bold; text-align: center; font-size: 0.9em; min-height: 1.2em; padding: 8px; border-radius: 5px; color: #ddd;}
+.message.error { color: #ffdddd; background-color: rgba(220, 53, 69, 0.5); border: 1px solid rgba(220, 53, 69, 0.7); }
+.message.success { color: #ddffdd; background-color: rgba(40, 167, 69, 0.5); border: 1px solid rgba(40, 167, 69, 0.7); }
 
 /* Room View Fullscreen */
 #roomView {
     width: 100%; height: 100%; max-width: none; margin: 0; border-radius: 0;
-    padding: 10px;
+    padding: 0; /* 移除内边距，让gameArea占满 */
     position: relative; box-shadow: none;
-    background-color: transparent; /* 使用body的浅灰色背景 */
+    background-color: transparent;
+    display: flex; flex-direction: column; /* 确保gameArea能flex-grow */
 }
-#roomHeader {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 5px 15px; flex-shrink: 0;
-    margin-bottom: 10px; color: #444; /* 头部文字颜色调整为深色以在浅灰背景上显示 */
-}
-#roomView h2 { margin: 5px 0; font-size: 1.2em; }
-#gameModeDisplay { display: none; /* 移除模式显示 */ }
-#leaveRoomButton { background-color: #dc3545; border: 1px solid #c82333; color: white; }
-#leaveRoomButton:hover { background-color: #c82333; }
-#roomStatusDisplay { text-align: center; font-size: 0.95em; color: #555; margin-bottom: 8px; flex-shrink: 0; }
 
-/* Game Area Layout */
+/* Game Area takes full space */
 #gameArea {
-    border: none; /* 移除游戏区域边框 */
-    border-radius: 8px;
+    border: none;
+    border-radius: 0; /* 全屏不需要圆角 */
     flex-grow: 1; display: grid;
-    grid-template-columns: 200px 1fr 200px;
-    grid-template-rows: 160px 1fr 220px;
-    gap: 10px; padding: 10px; overflow: hidden; min-height: 0;
-    background-color: #d0d0d0; /* 游戏区域使用比body稍深一点的浅灰色 */
+    /* 重新规划网格，为顶部信息区和底部操作区留出空间 */
+    grid-template-columns: 1fr 220px 1fr; /* 左玩家区 | 中间区域（牌堆+对手） | 右玩家区 */
+    grid-template-rows: auto 1fr auto auto; /* 顶部信息 | 上方玩家 | 牌堆+左右玩家 | 自己区域+操作 */
+    /* 调整为更经典的布局 */
+    grid-template-columns: 20% 1fr 20%;
+    grid-template-rows: 25% 1fr 30%; /* 上 | 中（牌堆+左右） | 下（自己） */
+
+    gap: 5px; padding: 10px; /* 轻微内边距和间隙 */
+    overflow: hidden; min-height: 0;
+    background-color: transparent; /* 使用body的背景 */
+    position: relative; /* 用于绝对定位整合的信息 */
 }
+
+/* 整合到牌桌内的信息条 */
+#gameInfoBar {
+    position: absolute;
+    top: 5px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+    font-size: 0.9em;
+    color: #f0f0f0;
+    /* background-color: rgba(0,0,0,0.3); */ /* 可选的背景 */
+    border-radius: 5px;
+    z-index: 200; /* 确保在最上层 */
+}
+#gameInfoBar .room-name-id { display: flex; flex-direction: column; align-items: flex-start;}
+#gameInfoBar .room-id { font-size: 0.8em; opacity: 0.7; }
+#gameInfoBar #leaveRoomButton { padding: 6px 12px; font-size: 0.85em; background-color: rgba(220, 53, 69, 0.7); border: none; }
+#gameInfoBar #leaveRoomButton:hover { background-color: rgba(200, 30, 40, 0.8); }
+
+/* 游戏状态/等待信息，也整合到牌桌内 */
+#gameStatusDisplay {
+    position: absolute;
+    bottom: 5px; /* 放在底部 */
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px 15px;
+    font-size: 0.9em;
+    color: #f0f0f0;
+    background-color: rgba(0,0,0,0.4);
+    border-radius: 15px;
+    z-index: 200;
+    text-align: center;
+    min-width: 200px;
+}
+
+
 .playerArea {
-    border: none; /* 移除玩家区域边框 */
-    padding: 10px 5px;
+    border: none;
+    padding: 5px; /* 减少内边距 */
     display: flex; flex-direction: column; align-items: center; justify-content: space-between;
     position: relative; overflow: visible;
     min-width: 0; min-height: 0;
-    background-color: transparent; /* 玩家区域背景透明，使用gameArea的颜色 */
+    background-color: transparent;
     border-radius: 6px;
 }
 .playerHeader {
     display: flex; flex-direction: column;
-    justify-content: flex-start; align-items: center;
-    width: 100%; flex-shrink: 0; margin-bottom: 5px;
-    text-align: center; min-height: 40px;
-    color: #333; /* 玩家信息文字颜色调整为深色 */
+    justify-content: center; align-items: center; /* 确保居中 */
+    width: 100%; flex-shrink: 0; margin-bottom: 3px; /* 减少底部外边距 */
+    text-align: center; min-height: 35px;
+    color: #e0e0e0; /* 调整文字颜色 */
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.7); /* 加强阴影 */
 }
-.playerName { font-weight: bold; font-size: 0.95em; }
-.playerRole { font-size: 0.85em; font-style: italic; }
-.playerInfo { font-size: 0.8em; line-height: 1.3; flex-shrink: 0; width: 100%; margin-top: 3px; }
-.playerInfo .ready { color: #28a745; } .playerInfo .not-ready { color: #ffc107; }
-.playerInfo .disconnected { color: #dc3545; font-style: italic; } .playerInfo .finished { color: #6c757d; font-style: italic; }
+.playerName { font-weight: bold; font-size: 0.9em; }
+.playerRole { font-size: 0.8em; font-style: italic; }
+.playerInfo { font-size: 0.75em; line-height: 1.2; flex-shrink: 0; width: 100%; margin-top: 2px; }
+.playerInfo .ready { color: #90ee90; } .playerInfo .not-ready { color: #ffd700; }
+.playerInfo .disconnected { color: #ff7f7f; font-style: italic; } .playerInfo .finished { color: #aaa; font-style: italic; }
 
 .playerCards {
     display: flex;
     justify-content: center;
-    align-items: flex-end;
+    align-items: center; /* 改为center，平铺牌会在中间 */
     width: 100%;
     flex-grow: 1;
-    min-height: 80px;
+    min-height: 85px; /* 确保足够高度显示完整牌 */
     position: relative;
     padding: 5px 0;
+    flex-wrap: nowrap; /* 我的手牌不再换行 */
+    overflow-x: auto; /* 如果牌太多，允许水平滚动 */
+    overflow-y: hidden;
 }
+/* 为对手牌区域恢复一些换行和垂直对齐 */
+#playerAreaTop .playerCards, #playerAreaLeft .playerCards, #playerAreaRight .playerCards {
+    align-items: flex-start; /* 对手牌从顶部开始堆叠 */
+    flex-wrap: wrap; /* 对手牌可以换行，如果扇形效果不好 */
+    overflow: hidden; /* 对手牌区不滚动 */
+}
+
 
 /* Card Styles */
 .card {
-    border: 1px solid #555;
-    border-radius: 5px;
-    width: 55px;
-    height: 77px;
+    border: 1px solid #222; /* 深色边框 */
+    border-radius: 6px; /* 更圆润 */
+    width: 60px; /* 增大牌的尺寸 */
+    height: 84px;
     display: flex;
-    flex-direction: column; justify-content: space-between; align-items: center;
-    background-color: #fff; font-size: 0.95em;
-    position: absolute;
+    flex-direction: column; justify-content: space-around; /* space-around使内容更居中 */ align-items: center;
+    background-color: #fefefe; font-size: 1em; /* 增大字体 */
+    position: absolute; /* 默认绝对，方便JS控制扇形 */
     overflow: hidden; flex-shrink: 0;
-    transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease-out;
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
     -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
-    box-shadow: 1px 1px 4px rgba(0,0,0,0.25);
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.4); /* 更深的阴影 */
     transform-origin: center center;
-    padding: 2px;
+    padding: 3px;
     box-sizing: border-box;
 }
-.card.hidden { background-color: #6c757d; background-image: url('/images/card-back.png'); background-size: cover; background-position: center; color: transparent; border-color: #495057; }
+.card.hidden { background-color: #555; background-image: url('/images/card-back.png'); background-size: cover; background-position: center; color: transparent; border-color: #333; }
 .card.hidden .rank, .card.hidden .suit { display: none; }
-.card .rank { font-weight: bold; line-height: 1; font-size: 1.2em; }
-.card .suit { font-size: 1.4em; line-height: 1; }
-.card.hearts .suit, .card.diamonds .suit, .card.hearts .rank, .card.diamonds .rank { color: red; }
-.card.spades .suit, .card.clubs .suit, .card.spades .rank, .card.clubs .rank { color: black; }
+.card .rank { font-weight: bold; line-height: 1; font-size: 1.4em; /* 牌面数字更大 */ }
+.card .suit { font-size: 1.6em; line-height: 1; /* 牌面花色更大 */ }
+.card.hearts .suit, .card.diamonds .suit, .card.hearts .rank, .card.diamonds .rank { color: #e74c3c; } /* 鲜艳红色 */
+.card.spades .suit, .card.clubs .suit, .card.spades .rank, .card.clubs .rank { color: #2c3e50; } /* 深蓝黑色 */
 
+/* My Hand: cards are relative for easy horizontal layout, not fanned by default */
 #playerAreaBottom .playerCards .card {
-    bottom: 5px;
-    transform-origin: bottom center;
+    position: relative; /* 改为relative，使其自然平铺 */
+    margin: 0 2px; /* 卡牌间距 */
+    bottom: auto; /* 移除绝对定位的bottom */
+    left: auto; /* 移除绝对定位的left */
+    transform-origin: bottom center; /* 悬停效果依然从底部 */
     cursor: pointer;
 }
-#playerAreaBottom .playerCards .card:hover { transform: translateY(-15px) scale(1.1); box-shadow: 0 8px 15px rgba(0,0,0,0.3); z-index: 100 !important; }
-#playerAreaBottom .playerCards .card.selected { border: 3px solid #007bff; box-shadow: 0 0 12px rgba(0, 123, 255, 0.6); transform: translateY(-12px) scale(1.05); z-index: 99 !important; }
-#playerAreaBottom .playerCards .card.hinted { border: 3px dashed orange; box-shadow: 0 0 12px rgba(255, 165, 0, 0.6); transform: translateY(-6px); }
-#playerAreaBottom .playerCards .card.disabled:hover { transform: none; box-shadow: 1px 1px 4px rgba(0,0,0,0.25); }
+#playerAreaBottom .playerCards .card:hover { transform: translateY(-15px) scale(1.08); box-shadow: 0 8px 16px rgba(0,0,0,0.4); z-index: 100 !important; }
+#playerAreaBottom .playerCards .card.selected { border: 3px solid #3498db; box-shadow: 0 0 15px rgba(52, 152, 219, 0.7); transform: translateY(-12px) scale(1.05); z-index: 99 !important; }
+#playerAreaBottom .playerCards .card.hinted { border: 3px dashed #f39c12; box-shadow: 0 0 15px rgba(243, 156, 18, 0.7); transform: translateY(-6px); }
 
 
+/* Opponent Card Positioning & Transform Origins (still absolute for fanning) */
 #playerAreaTop .playerCards .card { top: 5px; transform-origin: top center; }
-#playerAreaLeft .playerCards .card { left: 10px; top: 50%; transform-origin: center left; }
-#playerAreaRight .playerCards .card { right: 10px; top: 50%; transform-origin: center right; }
+#playerAreaLeft .playerCards .card { left: 5px; top: 50%; transform-origin: center left; }
+#playerAreaRight .playerCards .card { right: 5px; top: 50%; transform-origin: center right; }
 
 
 #playerAreaTop { grid-column: 2; grid-row: 1; }
 #playerAreaLeft { grid-column: 1; grid-row: 2; }
 #playerAreaRight { grid-column: 3; grid-row: 2; }
-#playerAreaBottom { grid-column: 2; grid-row: 3; }
+#playerAreaBottom { grid-column: 1 / -1; grid-row: 3; /* 自己区域横跨底部 */ }
 
 
-#centerArea { /* 牌桌中间区域 */
-    grid-column: 2; grid-row: 2;
-    border: none; /* 移除边框 */
+#centerArea {
+    grid-column: 2; grid-row: 2; /* 中心区域保持在中间 */
+    border: none;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     overflow: hidden;
     padding: 8px;
-    background-color: transparent; /* 背景透明，使用gameArea的颜色 */
+    background-color: rgba(0,0,0,0.15); /* 中心区域轻微透明暗色 */
     border-radius: 6px;
 }
-#centerArea > p { margin: 0 0 8px 0; font-size: 0.85em; flex-shrink: 0; color: #555; }
-#centerPileArea { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; width: 100%; flex-grow: 1; overflow-y: auto; min-height: 60px; padding: 5px; }
+#centerArea > p { margin: 0 0 8px 0; font-size: 0.9em; flex-shrink: 0; color: #ddd; }
+#centerPileArea { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; width: 100%; flex-grow: 1; overflow-y: auto; min-height: 70px; padding: 5px; }
 #centerPileArea .card { position: relative; margin: 3px; box-shadow: 1px 1px 3px rgba(0,0,0,0.2); }
-#lastHandTypeDisplay { font-size: 0.85em; color: #666; margin-top: 8px; font-style: italic; flex-shrink: 0; }
+#lastHandTypeDisplay { font-size: 0.9em; color: #ccc; margin-top: 8px; font-style: italic; flex-shrink: 0; }
 
 
 .playerArea.current-turn {
-    box-shadow: 0 0 18px 4px rgba(255, 193, 7, 0.7);
+    box-shadow: 0 0 20px 6px rgba(253, 203, 110, 0.7); /* 当前回合光晕 */
     z-index: 10;
+    background-color: rgba(255,255,255,0.03); /* 轻微提亮 */
 }
-.my-actions { display: flex; justify-content: center; flex-wrap: wrap; padding: 8px 0; width: 100%; flex-shrink: 0; gap: 10px; margin-top: auto; }
+.my-actions {
+    display: flex; justify-content: center; flex-wrap: wrap;
+    padding: 10px 0; width: 100%; flex-shrink: 0; gap: 12px; margin-top: 10px; /* 和手牌区分开 */
+}
 .my-actions button {
-    font-size: 0.9em; padding: 8px 15px; border-radius: 20px;
-    background-color: #6c757d;
-    color: white; border: 1px solid #5a6268;
-    text-shadow: 0 -1px 0 rgba(0,0,0,0.2);
-    box-shadow: 0 2px 3px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.2);
+    font-size: 0.95em; padding: 10px 20px; border-radius: 25px;
+    background-color: #4a5568; /* 深灰色按钮 */
+    color: white; border: 1px solid #2d3748;
+    text-shadow: 0 -1px 0 rgba(0,0,0,0.25);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
 }
-.my-actions button:hover { background-color: #5a6268; box-shadow: 0 3px 5px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2); }
-.my-actions button:disabled { background-color: #b0b0b0; border-color: #909090; color: #e0e0e0; text-shadow: none; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+.my-actions button:hover { background-color: #2d3748; }
+.my-actions button:disabled { background-color: #718096; border-color: #4a5568; color: #cbd5e0; text-shadow: none; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1); }
 
-#playSelectedCardsButton { background-color: #007bff; border-color: #0056b3;}
-#playSelectedCardsButton:hover { background-color: #0056b3; }
-#hintButton { background-color: #ffc107; border-color: #e0a800; color: #212529; text-shadow: none;}
-#hintButton:hover { background-color: #e0a800; }
+#playSelectedCardsButton { background-color: #3182ce; border-color: #2c5282;}
+#playSelectedCardsButton:hover { background-color: #2b6cb0; }
+#hintButton { background-color: #dd6b20; border-color: #c05621; }
+#hintButton:hover { background-color: #c05621; }
 
 
-#roomControls { margin-top: 10px; text-align: center; padding: 8px 0; flex-shrink: 0; }
-#readyButton { font-size: 1.1em; padding: 10px 25px; border-radius: 25px; background-color: #28a745; border-color: #1e7e34; color:white;}
-#readyButton.ready { background-color: #dc3545; border-color: #b02a37; } /* 取消准备用红色 */
+#roomControls { /* 这个容器现在可能不再直接使用，因为按钮移到gameInfoBar和gameStatusDisplay */
+    display: none; /* 暂时隐藏 */
+}
+#readyButton { font-size: 1.1em; padding: 10px 25px; border-radius: 25px; background-color: #38a169; border-color: #2f855a; color:white;}
+#readyButton.ready { background-color: #e53e3e; border-color: #c53030; }
 .view-inline-block { display: inline-block !important; }
 
 
-.overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.75); z-index: 1000; }
-.overlay-content { background-color: #f8f9fa; padding: 30px; border-radius: 10px; text-align: center; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25); max-width: 90%; width: 450px; color: #333;}
+.overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); z-index: 1000; }
+.overlay-content { background-color: #e2e8f0; padding: 30px; border-radius: 10px; text-align: center; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3); max-width: 90%; width: 450px; color: #2d3748;}
 .overlay-content h3 { margin-top: 0; }
 #gameOverScores { margin-top: 15px; margin-bottom: 20px; text-align: left; }
 #gameOverScores p { margin: 8px 0; font-size: 1.1em; }
-#gameOverScores .score-plus { color: #28a745; font-weight: bold; }
-#gameOverScores .score-minus { color: #dc3545; font-weight: bold; }
-#gameOverScores .score-zero { color: #6c757d; }
+#gameOverScores .score-plus { color: #38a169; font-weight: bold; }
+#gameOverScores .score-minus { color: #e53e3e; font-weight: bold; }
+#gameOverScores .score-zero { color: #718096; }
 
 .hand-count-display {
     position: absolute;
     font-size: 0.9em;
-    color: #333;
-    background-color: rgba(255, 255, 255, 0.75);
-    padding: 3px 8px;
-    border-radius: 12px;
+    color: #f0f0f0;
+    background-color: rgba(0, 0, 0, 0.65);
+    padding: 4px 10px;
+    border-radius: 15px;
     z-index: 50;
-    border: 1px solid rgba(0,0,0,0.1);
+    border: 1px solid rgba(255,255,255,0.1);
 }
-#playerAreaTop .hand-count-display { bottom: 8px; left: 50%; transform: translateX(-50%); }
-#playerAreaLeft .hand-count-display { top: 50%; right: 12px; transform: translateY(-50%); }
-#playerAreaRight .hand-count-display { top: 50%; left: 12px; transform: translateY(-50%); }
+#playerAreaTop .hand-count-display { bottom: 5px; left: 50%; transform: translateX(-50%); } /* 顶部玩家牌数在牌下方 */
+#playerAreaLeft .hand-count-display { top: 50%; right: 5px; transform: translateY(-50%); } /* 左侧玩家牌数在牌右方 */
+#playerAreaRight .hand-count-display { top: 50%; left: 5px; transform: translateY(-50%); } /* 右侧玩家牌数在牌左方 */
 
 
 /* Responsive Adjustments */
 @media (max-width: 900px) {
     #gameArea {
-        grid-template-columns: 160px 1fr 160px;
-        grid-template-rows: 140px 1fr 200px;
-        gap: 8px; padding: 8px;
+        grid-template-columns: 170px 1fr 170px; /* 调整侧边栏宽度 */
+        grid-template-rows: 22% 1fr 32%; /* 调整行高比例 */
+        padding: 8px; gap: 8px;
     }
-    .card { width: 50px; height: 70px; }
+    .card { width: 55px; height: 77px; }
 }
 
 @media (max-width: 768px) {
     body { font-size: 15px; }
     #gameArea {
-        grid-template-columns: 1fr;
-        grid-template-rows: 130px 110px 110px minmax(90px, auto) 190px;
-        gap: 5px; padding: 5px;
+        grid-template-columns: 1fr; /* 单列布局 */
+        grid-template-rows: auto auto auto 1fr auto; /* 顶栏 | 上 | 左 | 中 | 右 | 下 */
+        /* 需要为移动端重新定义grid-template-rows以适应新的元素位置 */
+        grid-template-rows: auto 130px 110px 1fr 200px; /* 示例: 顶栏 | 上方玩家 | 左右玩家合并显示或轮流 | 牌桌 | 自己 */
+        padding: 5px; gap: 5px;
     }
-    .card { width: 48px; height: 67px; }
-    .playerHeader { min-height: 35px; }
-    .my-actions button { font-size: 0.85em; padding: 7px 12px; }
+    /* 在移动端，左右玩家区域可能需要特殊处理或合并显示 */
+    #playerAreaLeft, #playerAreaRight { /* 可能需要调整或隐藏部分 */
+        /* display: none; */ /* 或者合并到一个区域 */
+    }
+    .card { width: 50px; height: 70px; }
+    .my-actions button { font-size: 0.9em; padding: 8px 15px; }
 }
 
 @media (max-width: 480px) {
     body { font-size: 14px; }
     #gameArea {
-        grid-template-rows: 120px 100px 100px minmax(80px, auto) 180px;
+        grid-template-rows: auto 120px 100px 1fr 190px; /* 调整移动端行高 */
     }
-    .card { width: 45px; height: 63px; }
-    .playerHeader { min-height: 30px; margin-bottom: 3px;}
-    .playerInfo { font-size: 0.75em; }
-    .hand-count-display { font-size: 0.8em; padding: 2px 6px;}
-    .my-actions button { font-size: 0.8em; padding: 6px 10px; }
+    .card { width: 48px; height: 67px; } /* 进一步缩小牌 */
+    .card .rank {font-size: 1.1em;}
+    .card .suit {font-size: 1.3em;}
+    .playerHeader { min-height: 30px; margin-bottom: 2px;}
+    .playerInfo { font-size: 0.7em; }
+    .hand-count-display { font-size: 0.8em; padding: 3px 7px;}
+    .my-actions button { font-size: 0.85em; padding: 7px 12px; }
 }
