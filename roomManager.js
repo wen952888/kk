@@ -1,3 +1,4 @@
+// roomManager.js
 const { Game } = require('./game');
 const crypto = require('crypto');
 
@@ -14,7 +15,6 @@ function init(socket, io) {
     // --- Create Room ---
     socket.on('createRoom', (data, callback) => {
         if (!socket.userId) return callback({ success: false, message: '请先登录。' });
-        // ... (rest of createRoom logic from previous version) ...
         const { roomName, password } = data;
         if (!roomName || typeof roomName !== 'string' || roomName.trim().length === 0) {
             return callback({ success: false, message: '需要有效的房间名称。' });
@@ -25,7 +25,7 @@ function init(socket, io) {
 
         let roomId = generateRoomId();
         let attempts = 0;
-        while(activeGames[roomId] && attempts < 5) { // Handle rare collisions
+        while(activeGames[roomId] && attempts < 5) {
             roomId = generateRoomId();
             attempts++;
         }
@@ -33,7 +33,6 @@ function init(socket, io) {
              console.error("[ROOM] Failed to generate unique Room ID after multiple attempts.");
              return callback({success: false, message: "创建房间失败，请稍后再试。"});
         }
-
 
         const game = new Game(roomId, 4);
         const newRoom = {
@@ -53,7 +52,7 @@ function init(socket, io) {
         if (joinResult.success) {
             socket.join(roomId);
             socket.roomId = roomId;
-            callback({ success: true, roomId: roomId, roomState: getRoomStateForPlayer(newRoom, socket.userId) }); // Send roomState
+            callback({ success: true, roomId: roomId, roomState: getRoomStateForPlayer(newRoom, socket.userId) });
             broadcastRoomList();
         } else {
             delete activeGames[roomId];
@@ -64,50 +63,43 @@ function init(socket, io) {
     // --- Join Room ---
     socket.on('joinRoom', (data, callback) => {
         if (!socket.userId) return callback({ success: false, message: '请先登录。' });
-        // ... (rest of joinRoom logic from previous version, including reconnect check) ...
          const { roomId, password } = data;
          const room = activeGames[roomId];
 
          if (!room) return callback({ success: false, message: '房间不存在。' });
 
-         // Reconnect check
          const existingPlayer = room.players.find(p => p.userId === socket.userId);
          if (existingPlayer) {
-            if (!existingPlayer.connected) { // Only allow reconnect if marked disconnected
+            if (!existingPlayer.connected) {
                 console.log(`[ROOM] Player ${socket.username} rejoining room ${roomId}`);
-                const reconnectResult = handleReconnect(socket, roomId); // Use the dedicated function
+                const reconnectResult = handleReconnect(socket, roomId);
                 if (reconnectResult.success) {
                     callback({ success: true, roomId: roomId, roomState: reconnectResult.roomState });
                 } else {
                     callback({ success: false, message: reconnectResult.message });
                 }
             } else {
-                // Already connected in this room, maybe send current state?
                  console.log(`[ROOM] Player ${socket.username} already connected in room ${roomId}`);
                  callback({ success: true, roomId: roomId, roomState: getRoomStateForPlayer(room, socket.userId), message: "您已在此房间中。" });
             }
-            return; // Stop further processing
+            return;
          }
 
-
-         // New join checks
          if (room.status !== 'waiting') return callback({ success: false, message: '游戏已开始或已结束，无法加入。' });
          if (room.players.length >= 4) return callback({ success: false, message: '房间已满。' });
          if (room.password && room.password !== password) return callback({ success: false, message: '房间密码错误。' });
 
-         // Add player to room
          const joinResult = addPlayerToRoom(room, socket);
          if (joinResult.success) {
              socket.join(roomId);
              socket.roomId = roomId;
              console.log(`[ROOM] Player ${socket.username} joined room "${room.roomName}" (${roomId})`);
-             socket.to(roomId).emit('playerJoined', { ...joinResult.player, socketId: undefined }); // Don't broadcast socketId
-             callback({ success: true, roomId: roomId, roomState: getRoomStateForPlayer(room, socket.userId) }); // Send roomState
+             socket.to(roomId).emit('playerJoined', { ...joinResult.player, socketId: undefined });
+             callback({ success: true, roomId: roomId, roomState: getRoomStateForPlayer(room, socket.userId) });
              broadcastRoomList();
          } else {
              callback({ success: false, message: joinResult.message });
          }
-
     });
 
     // --- List Rooms ---
@@ -119,10 +111,9 @@ function init(socket, io) {
 
     // --- Player Ready ---
     socket.on('playerReady', (isReady, callback) => {
-        // ... (playerReady logic remains largely the same) ...
          if (!socket.userId || !socket.roomId) return callback({ success: false, message: '无效操作。' });
          const room = activeGames[socket.roomId];
-         if (!room) return callback({success: false, message: "房间信息丢失。"}); // Added check
+         if (!room) return callback({success: false, message: "房间信息丢失。"});
          if (room.status !== 'waiting') return callback({ success: false, message: '不在等待中的房间内。' });
 
          const player = room.players.find(p => p.userId === socket.userId);
@@ -140,38 +131,26 @@ function init(socket, io) {
     socket.on('playCard', (cards, callback) => {
         if (!socket.userId || !socket.roomId) return callback({ success: false, message: '无效操作。'});
         const room = activeGames[socket.roomId];
-
-        if (!room || room.status !== 'playing' || !room.game) {
-            return callback({ success: false, message: '不在游戏中或游戏未开始。' });
-        }
-        // Basic validation of input structure
-        if (!Array.isArray(cards)) {
-             return callback({success: false, message: '无效的卡牌数据格式。'});
-        }
+        if (!room || room.status !== 'playing' || !room.game) return callback({ success: false, message: '不在游戏中或游戏未开始。' });
+        if (!Array.isArray(cards)) return callback({success: false, message: '无效的卡牌数据格式。'});
 
         const game = room.game;
-        const playResult = game.playCard(socket.userId, cards); // Pass cards array
+        const playResult = game.playCard(socket.userId, cards);
 
         if (playResult.success) {
              console.log(`[GAME ${room.roomId}] Player ${socket.username} played cards. Type: ${playResult.handInfo?.type || 'N/A'}`);
-             // Broadcast updated game state
-             const newState = getRoomStateForPlayer(room, null, true); // Get full state for broadcast
+             const newState = getRoomStateForPlayer(room, null, true);
              ioInstance.to(room.roomId).emit('gameStateUpdate', newState);
-
-             // Check for game over condition signaled by playResult
              if (playResult.gameOver) {
                  console.log(`[GAME ${room.roomId}] Game over signaled by playCard.`);
                  room.status = 'finished';
-                 // Send final result details
                  ioInstance.to(room.roomId).emit('gameOver', playResult.scoreResult);
                  broadcastRoomList();
              }
-
              callback({success: true});
-
         } else {
             console.log(`[GAME ${room.roomId}] Invalid play by ${socket.username}: ${playResult.message}`);
-            socket.emit('invalidPlay', { message: playResult.message }); // Send error only to sender
+            socket.emit('invalidPlay', { message: playResult.message });
             callback({success: false, message: playResult.message});
         }
     });
@@ -180,23 +159,19 @@ function init(socket, io) {
     socket.on('passTurn', (callback) => {
         if (!socket.userId || !socket.roomId) return callback({ success: false, message: '无效操作。'});
         const room = activeGames[socket.roomId];
-
-        if (!room || room.status !== 'playing' || !room.game) {
-            return callback({ success: false, message: '不在游戏中或游戏未开始。' });
-        }
+        if (!room || room.status !== 'playing' || !room.game) return callback({ success: false, message: '不在游戏中或游戏未开始。' });
 
         const game = room.game;
-        const passResult = game.handlePass(socket.userId); // Call game logic for pass
+        const passResult = game.handlePass(socket.userId);
 
         if (passResult.success) {
             console.log(`[GAME ${room.roomId}] Player ${socket.username} passed.`);
-            // Broadcast updated game state
             const newState = getRoomStateForPlayer(room, null, true);
             ioInstance.to(room.roomId).emit('gameStateUpdate', newState);
             callback({success: true});
         } else {
             console.log(`[GAME ${room.roomId}] Invalid pass by ${socket.username}: ${passResult.message}`);
-            socket.emit('invalidPlay', { message: passResult.message }); // Use same event for feedback
+            socket.emit('invalidPlay', { message: passResult.message });
             callback({success: false, message: passResult.message});
         }
     });
@@ -205,13 +180,10 @@ function init(socket, io) {
     socket.on('requestHint', (currentHintIndex, callback) => {
         if (!socket.userId || !socket.roomId) return callback({ success: false, message: '无效操作。'});
         const room = activeGames[socket.roomId];
-
-        if (!room || room.status !== 'playing' || !room.game) {
-            return callback({ success: false, message: '不在游戏中或游戏未开始。' });
-        }
+        if (!room || room.status !== 'playing' || !room.game) return callback({ success: false, message: '不在游戏中或游戏未开始。' });
 
         const game = room.game;
-        const hintResult = game.findHint(socket.userId, currentHintIndex || 0); // Pass current index
+        const hintResult = game.findHint(socket.userId, currentHintIndex || 0);
 
         if (hintResult.success) {
             callback({ success: true, hint: hintResult.hint, nextHintIndex: hintResult.nextHintIndex });
@@ -220,8 +192,83 @@ function init(socket, io) {
         }
     });
 
+    // --- Leave Room ---
+    socket.on('leaveRoom', (callback) => {
+        if (!socket.userId || !socket.roomId) {
+            console.log(`[LEAVE ROOM] Invalid attempt: No userId or roomId for socket ${socket.id}`);
+            // If socket.roomId was somehow cleared but user thinks they are in a room
+            if (typeof callback === 'function') callback({ success: true, message: '您已不在房间中。' });
+            return;
+        }
 
-    // --- Request Game State (e.g., after reconnect) ---
+        const roomId = socket.roomId;
+        const room = activeGames[roomId];
+
+        if (!room) {
+            console.log(`[LEAVE ROOM] Room ${roomId} not found for user ${socket.username} (socket ${socket.id}).`);
+            delete socket.roomId; // Clean up stale roomId on socket
+            if (typeof callback === 'function') callback({ success: true, message: '房间已不存在或您已离开。' });
+            return;
+        }
+
+        const playerIndex = room.players.findIndex(p => p.userId === socket.userId);
+
+        if (playerIndex === -1) {
+            console.log(`[LEAVE ROOM] User ${socket.username} not found in room ${roomId} player list.`);
+            delete socket.roomId; // Clean up
+            if (typeof callback === 'function') callback({ success: true, message: '您当前不在此房间的玩家列表中。' });
+            return;
+        }
+
+        const player = room.players[playerIndex];
+        console.log(`[ROOM ${roomId}] Player ${player.username} (ID: ${player.userId}) is leaving room "${room.roomName}".`);
+
+        // Remove player from room.players array
+        room.players.splice(playerIndex, 1);
+
+        // If game was in progress, inform game instance
+        if (room.game && (room.status === 'playing' || room.status === 'waiting' && room.game.gameStarted)) { // Also handle if game started but room is waiting for some reason
+            room.game.removePlayer(player.userId); // This should mark player as disconnected in game
+
+            // Check if game needs to end
+            const activePlayersInGame = room.game.players.filter(p => p.connected && !p.finished).length;
+            if (activePlayersInGame < 2 && room.game.gameStarted && !room.game.gameFinished) {
+                console.log(`[GAME ${roomId}] Game ending due to player leaving. Remaining active: ${activePlayersInGame}`);
+                room.status = 'finished';
+                const scoreResult = room.game.endGame('有玩家离开，游戏结束');
+                ioInstance.to(roomId).emit('gameOver', scoreResult || { reason: '有玩家离开，游戏结束。' });
+            } else if (!room.game.gameFinished) {
+                if (room.game.currentPlayerId === player.userId) { // If leaving player was current
+                    room.game.nextTurn(true); // Force next turn
+                }
+                 // Always broadcast state update as player list changed
+                 // or current player might have changed
+                const newState = getRoomStateForPlayer(room, null, true);
+                ioInstance.to(roomId).emit('gameStateUpdate', newState);
+            }
+        }
+
+        // Notify other players in the room
+        socket.to(roomId).emit('playerLeft', { userId: player.userId, username: player.username });
+
+        // Make socket leave the Socket.IO room
+        socket.leave(roomId);
+        console.log(`[SOCKET] Socket ${socket.id} left Socket.IO room ${roomId}`);
+        delete socket.roomId; // Clear roomId from socket
+
+        // If room is empty, delete it
+        if (room.players.length === 0) {
+            console.log(`[ROOM ${roomId}] Room "${room.roomName}" is empty. Deleting.`);
+            delete activeGames[roomId];
+        }
+
+        broadcastRoomList(); // Update lobby for everyone
+
+        if (typeof callback === 'function') callback({ success: true, message: '已成功离开房间。' });
+    });
+
+
+    // --- Request Game State ---
      socket.on('requestGameState', (callback) => {
          if (!socket.userId || !socket.roomId) return;
          const room = activeGames[socket.roomId];
@@ -231,8 +278,7 @@ function init(socket, io) {
      });
 }
 
-// --- Helper Functions (addPlayerToRoom, checkAndStartGame etc.) ---
-
+// --- Helper Functions ---
 function addPlayerToRoom(room, socket) {
     if (room.players.length >= 4) return { success: false, message: "房间已满。" };
     const existingSlots = room.players.map(p => p.slot);
@@ -251,7 +297,6 @@ function addPlayerToRoom(room, socket) {
 }
 
 function checkAndStartGame(room) {
-    // ... (logic to check 4 connected & ready players remains the same) ...
      if (room.status !== 'waiting') return;
      const connectedPlayers = room.players.filter(p => p.connected);
      const readyPlayers = connectedPlayers.filter(p => p.isReady);
@@ -260,7 +305,7 @@ function checkAndStartGame(room) {
          console.log(`[ROOM ${room.roomId}] All 4 connected players ready. Starting game...`);
          room.status = 'playing';
          const playerStartInfo = connectedPlayers.map(p => ({ id: p.userId, name: p.username, slot: p.slot }));
-         const startResult = room.game.startGame(playerStartInfo); // Start game logic
+         const startResult = room.game.startGame(playerStartInfo);
 
          if (startResult.success) {
              const initialState = getRoomStateForPlayer(room, null, true);
@@ -278,87 +323,100 @@ function checkAndStartGame(room) {
 }
 
 function getRoomStateForPlayer(room, requestingUserId, isGameUpdate = false) {
-    // ... (logic to get combined room/game state remains the same) ...
      const gameState = room.game ? room.game.getStateForPlayer(requestingUserId) : null;
      const combinedPlayers = room.players.map(roomPlayer => {
          const gamePlayer = gameState ? gameState.players.find(gp => gp.id === roomPlayer.userId) : null;
          return {
              userId: roomPlayer.userId, username: roomPlayer.username, slot: roomPlayer.slot,
              isReady: roomPlayer.isReady, connected: roomPlayer.connected,
-             // Game data
-             score: gamePlayer ? gamePlayer.score : 0, // Use internal accumulated score
+             score: gamePlayer ? gamePlayer.score : 0,
              hand: gamePlayer ? gamePlayer.hand : (requestingUserId === roomPlayer.userId ? [] : undefined),
-             handCount: gamePlayer ? gamePlayer.handCount : 0,
+             handCount: gamePlayer ? gamePlayer.handCount : (roomPlayer.connected ? (gamePlayer?.handCount ?? 0) : 0), // Show 0 if disconnected for non-self
              isCurrentPlayer: gameState ? gameState.currentPlayerId === roomPlayer.userId : false,
-             role: gamePlayer ? gamePlayer.role : null, // Add role if available in gamePlayer state
-             finished: gamePlayer ? gamePlayer.finished : false // Add finished status
+             role: gamePlayer ? gamePlayer.role : null,
+             finished: gamePlayer ? gamePlayer.finished : false
          };
      });
 
      return {
          roomId: room.roomId, roomName: room.roomName, status: room.status,
          players: combinedPlayers,
-         // Game state specifics
          centerPile: gameState?.centerPile ?? [],
-         lastHandType: gameState?.lastHandType ?? null,
+         lastHandInfo: gameState?.lastHandInfo ?? null, // Changed from lastHandType to full info
          currentPlayerId: gameState?.currentPlayerId ?? null,
-         isFirstTurn: gameState?.isFirstTurn ?? false, // Include if game sends it
+         isFirstTurn: gameState?.isFirstTurn ?? false,
          myUserId: requestingUserId,
-         gameMode: room.game ? room.game.gameMode : null // Include game mode
+         gameMode: room.game ? room.game.gameMode : null
      };
 }
 
 // --- Disconnect and Reconnect Handling ---
 function handleDisconnect(socket) {
-    // ... (disconnect logic remains largely the same, marks player disconnected) ...
-     const roomId = socket.roomId;
-     if (!roomId || !activeGames[roomId]) return;
+     const roomId = socket.roomId; // Get roomId stored on socket during join/create
+     if (!roomId) {
+        //  console.log(`[DISCO] Socket ${socket.id} disconnected, was not in a room.`);
+         return;
+     }
+
      const room = activeGames[roomId];
-     const player = room.players.find(p => p.socketId === socket.id); // Find by current socketId
+     if (!room) {
+         console.log(`[DISCO] Socket ${socket.id} disconnected, room ${roomId} no longer active.`);
+         delete socket.roomId; // Clean up stale roomId
+         return;
+     }
 
-     if (!player) return;
+     const player = room.players.find(p => p.socketId === socket.id);
+     if (!player) {
+         console.log(`[DISCO] Socket ${socket.id} was in room ${roomId} but player not found by socketId.`);
+         // This can happen if player reconnected with a new socket already
+         // Or if player was removed due to leaving
+         delete socket.roomId;
+         return;
+     }
 
-     console.log(`[ROOM ${roomId}] Player ${player.username} (ID: ${player.userId}) disconnected.`);
+     console.log(`[ROOM ${roomId}] Player ${player.username} (ID: ${player.userId}) disconnected via socket ${socket.id}.`);
      player.connected = false;
      player.isReady = false;
 
-     socket.to(roomId).emit('playerLeft', { userId: player.userId, username: player.username });
+     ioInstance.to(roomId).emit('playerLeft', { userId: player.userId, username: player.username });
 
-     if (room.status === 'playing' && room.game) {
-         room.game.markPlayerConnected(player.userId, false); // Inform game logic
-         const remainingConnected = room.players.filter(p => p.connected).length;
-         if (remainingConnected < 2 && room.game.gameStarted && !room.game.gameFinished) { // Ensure game started but not finished
-             console.log(`[GAME ${roomId}] Not enough players remaining. Ending game due to disconnect.`);
+     if (room.game && (room.status === 'playing' || (room.status === 'waiting' && room.game.gameStarted))) {
+         room.game.markPlayerConnected(player.userId, false);
+         const activePlayersInGame = room.game.players.filter(p => p.connected && !p.finished).length;
+
+         if (activePlayersInGame < 2 && room.game.gameStarted && !room.game.gameFinished) {
+             console.log(`[GAME ${roomId}] Game ending due to disconnect. Remaining active: ${activePlayersInGame}`);
              room.status = 'finished';
-             const scoreResult = room.game.endGame('Not enough players'); // Trigger end game
-             ioInstance.to(roomId).emit('gameOver', scoreResult || { reason: 'Not enough players connected.' }); // Send results or reason
-             broadcastRoomList(); // Update lobby
-             // Consider cleanup timer here
-         } else {
-             // Check if disconnected player was current player
-             if (room.game.currentPlayerId === player.userId && !room.game.gameFinished) {
-                 room.game.nextTurn(true); // Force advance turn
-                 const newState = getRoomStateForPlayer(room, null, true);
-                 ioInstance.to(room.roomId).emit('gameStateUpdate', newState);
+             const scoreResult = room.game.endGame('有玩家断线，游戏结束');
+             ioInstance.to(roomId).emit('gameOver', scoreResult || { reason: '有玩家断线，游戏结束。' });
+         } else if (!room.game.gameFinished) {
+             if (room.game.currentPlayerId === player.userId) {
+                 room.game.nextTurn(true);
              }
+             // Broadcast updated state (player disconnected, turn might have changed)
+             const newState = getRoomStateForPlayer(room, null, true);
+             ioInstance.to(room.roomId).emit('gameStateUpdate', newState);
          }
      }
 
-     // Check if room needs cleanup (optional timer logic)
-     const allDisconnected = room.players.every(p => !p.connected);
-     if (allDisconnected && room.players.length > 0) {
-          console.log(`[ROOM ${roomId}] All players disconnected. Room "${room.roomName}" marked for potential cleanup.`);
-          // setTimeout(() => cleanupEmptyRoom(roomId), 60000);
-     } else {
-          broadcastRoomList(); // Update player count in lobby
+     // Check if room should be deleted
+     const stillConnectedPlayersInRoom = room.players.filter(p => p.connected).length;
+     if (stillConnectedPlayersInRoom === 0 && room.players.length > 0) { // Check if room had players and all are now disconnected
+         console.log(`[ROOM ${roomId}] All players in room "${room.roomName}" are disconnected. Deleting room.`);
+         delete activeGames[roomId];
+     } else if (room.players.length === 0) { // Or if the player list is truly empty after a leave
+          console.log(`[ROOM ${roomId}] Room "${room.roomName}" is empty. Deleting.`);
+          delete activeGames[roomId];
      }
+
+
+     broadcastRoomList();
+     delete socket.roomId; // Clean up after processing
 }
 
 function findRoomByUserId(userId) {
-    // ... (logic remains the same) ...
      for (const roomId in activeGames) {
          const room = activeGames[roomId];
-         // Look for players previously connected or currently connected (for safety)
          if (room.players.some(p => p.userId === userId)) {
              return room;
          }
@@ -367,15 +425,24 @@ function findRoomByUserId(userId) {
 }
 
 function handleReconnect(socket, roomId) {
-    // ... (logic remains the same) ...
       const room = activeGames[roomId];
       if (!room) return { success: false, message: '尝试重连的房间已不存在。' };
 
       const player = room.players.find(p => p.userId === socket.userId);
       if (!player) return { success: false, message: '玩家数据异常。' };
 
+      // If player was already marked as connected with a different socket, log it
+      if (player.connected && player.socketId !== socket.id) {
+          console.warn(`[RECONNECT ${roomId}] Player ${player.username} already connected with socket ${player.socketId}. Updating to ${socket.id}.`);
+          // Optionally, disconnect the old socket if it's still somehow alive
+          // const oldSocket = ioInstance.sockets.sockets.get(player.socketId);
+          // if (oldSocket) oldSocket.disconnect(true);
+      }
+
       player.socketId = socket.id;
       player.connected = true;
+      // Player's ready status should persist if they were ready before disconnect.
+      // If a game was in progress, their hand also persists.
       console.log(`[RECONNECT ${roomId}] Player ${player.username} reconnected with new socket ${socket.id}`);
 
       if (room.game && room.status === 'playing') {
@@ -384,14 +451,12 @@ function handleReconnect(socket, roomId) {
 
       socket.join(roomId);
       socket.roomId = roomId;
-      socket.to(roomId).emit('playerReconnected', { userId: player.userId, username: player.username });
+      // Send a specific event for reconnected player so client can update UI without full re-render if desired
+      socket.to(roomId).emit('playerReconnected', { userId: player.userId, username: player.username, slot: player.slot, isReady: player.isReady });
       return { success: true, roomState: getRoomStateForPlayer(room, socket.userId) };
 }
 
-
-// --- Lobby Broadcasting ---
 function getPublicRoomList() {
-    // ... (logic remains the same) ...
       return Object.values(activeGames).map(room => ({
          roomId: room.roomId, roomName: room.roomName,
          playerCount: room.players.filter(p => p.connected).length,
@@ -403,10 +468,9 @@ function broadcastRoomList() {
         ioInstance.emit('roomListUpdate', getPublicRoomList());
     }
 }
-function handleAuthentication(socket) { // Called after login/reauth
+function handleAuthentication(socket) {
     socket.emit('roomListUpdate', getPublicRoomList());
 }
-
 
 module.exports = {
     init,
