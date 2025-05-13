@@ -1,0 +1,298 @@
+body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 10px;
+    background-color: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.view {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+    width: 90%;
+    max-width: 800px; /* Adjust as needed */
+}
+
+#loginRegisterView h2, #lobbyView h2, #roomView h2 {
+    text-align: center;
+    margin-top: 0;
+    color: #333;
+}
+
+#authFormContainer {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+}
+
+.formSection {
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 5px;
+    width: 45%;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="tel"] {
+    display: block;
+    width: calc(100% - 22px); /* Account for padding/border */
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+button {
+    padding: 10px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+#leaveRoomButton {
+    background-color: #dc3545;
+    position: absolute;
+    top: 15px;
+    right: 15px;
+}
+#leaveRoomButton:hover {
+     background-color: #c82333;
+}
+
+
+.message {
+    margin-top: 15px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.message.error {
+    color: red;
+}
+
+.message.success {
+    color: green;
+}
+
+/* Lobby Styles */
+#roomList {
+    border: 1px solid #eee;
+    padding: 10px;
+    min-height: 100px;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 15px;
+}
+
+.room-item {
+    border-bottom: 1px dotted #ccc;
+    padding: 8px 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.room-item:last-child {
+    border-bottom: none;
+}
+.room-item span {
+    margin-right: 10px;
+}
+.room-item .status-waiting { color: orange; }
+.room-item .status-playing { color: red; }
+.room-item .status-finished { color: gray; }
+
+
+/* Room/Game Styles */
+#gameArea {
+    margin-top: 20px;
+    border: 2px solid #aaa;
+    border-radius: 5px;
+    padding: 15px;
+    position: relative; /* For positioning player areas */
+    height: 600px; /* Adjust as needed */
+    display: grid;
+    grid-template-columns: 150px 1fr 150px; /* Left, Center, Right */
+    grid-template-rows: 150px 1fr 150px; /* Top, Middle, Bottom */
+    gap: 10px;
+}
+
+.playerArea {
+    border: 1px dashed #ccc;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center; /* Center content vertically */
+    position: relative; /* For absolute positioned elements inside if needed */
+    overflow: hidden; /* Hide overflowing cards */
+}
+.playerName {
+    font-weight: bold;
+    margin-bottom: 5px;
+    text-align: center;
+    width: 100%;
+     white-space: nowrap;
+     overflow: hidden;
+     text-overflow: ellipsis;
+}
+.playerInfo {
+     font-size: 0.8em;
+     color: #555;
+     text-align: center;
+     margin-bottom: 5px;
+}
+.playerInfo .ready { color: green; font-weight: bold; }
+.playerInfo .not-ready { color: orange; }
+.playerInfo .disconnected { color: red; font-style: italic; }
+
+
+#playerAreaTop { grid-column: 2; grid-row: 1; }
+#playerAreaLeft { grid-column: 1; grid-row: 2; }
+#playerAreaRight { grid-column: 3; grid-row: 2; }
+#playerAreaBottom { grid-column: 2; grid-row: 3; }
+#centerArea {
+    grid-column: 2;
+    grid-row: 2;
+    border: 1px solid #999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+     overflow: auto; /* Scroll if too many cards */
+}
+
+#centerPileArea {
+    display: flex;
+    flex-wrap: wrap; /* Allow cards to wrap */
+    justify-content: center;
+    align-items: center;
+    min-height: 50px; /* Ensure some space */
+}
+
+
+/* Player Hands */
+.playerCards {
+    display: flex;
+    justify-content: center; /* Center cards horizontally */
+    align-items: center; /* Align items vertically */
+    flex-wrap: wrap; /* Allow cards to wrap */
+    width: 100%;
+    min-height: 50px; /* Ensure hand area has some height */
+}
+
+.myHand .card {
+    cursor: pointer;
+    transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+}
+.myHand .card:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+.myHand .card.disabled { /* If it's not player's turn */
+     cursor: not-allowed;
+     opacity: 0.7;
+}
+.myHand .card.disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+
+/* Card Styles */
+.card {
+    border: 1px solid black;
+    border-radius: 5px;
+    width: 60px; /* Adjust size as needed */
+    height: 90px;
+    display: inline-flex; /* Use flex for centering content */
+    flex-direction: column;
+    justify-content: space-between; /* Space out rank/suit */
+    align-items: center;
+    margin: 2px;
+    background-color: white;
+    font-size: 1.2em; /* Rank size */
+    position: relative; /* For potential overlap/positioning */
+    user-select: none; /* Prevent text selection */
+    overflow: hidden; /* Hide content if needed */
+}
+
+.card.hidden {
+    background-color: blue; /* Default back color */
+    background-image: url('/images/card-back.png'); /* Use your card back image */
+    background-size: cover;
+    background-position: center;
+     color: transparent; /* Hide text on back */
+}
+.card.hidden .rank, .card.hidden .suit {
+     display: none; /* Ensure content is hidden */
+}
+
+
+.card .rank {
+    font-weight: bold;
+    line-height: 1; /* Adjust line height */
+     padding-top: 5px;
+}
+
+.card .suit {
+    font-size: 1.5em; /* Suit symbol size */
+    line-height: 1;
+     padding-bottom: 5px;
+}
+
+/* Suit Colors */
+.card.hearts .suit, .card.diamonds .suit,
+.card.hearts .rank, .card.diamonds .rank { color: red; }
+.card.spades .suit, .card.clubs .suit,
+.card.spades .rank, .card.clubs .rank { color: black; }
+/* Jokers if you add them */
+/* .card.joker.black { color: black; } */
+/* .card.joker.red { color: red; } */
+
+
+/* Highlight Current Player */
+.playerArea.current-turn {
+    border: 2px solid gold;
+    box-shadow: 0 0 10px gold;
+}
+
+
+#roomControls {
+    margin-top: 15px;
+    text-align: center;
+}
+
+#readyButton {
+     font-size: 1.2em;
+     padding: 12px 25px;
+}
+#readyButton.ready {
+     background-color: #28a745; /* Green when ready */
+}
+#readyButton.ready:hover {
+     background-color: #218838;
+}
+
+/* Utility */
+.hidden-view {
+    display: none !important; /* Ensure view is hidden */
+}
