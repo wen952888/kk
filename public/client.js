@@ -1,7 +1,152 @@
 // public/client.js
-// (大部分代码与上一个“完整版”的 client.js 相同，关键修改如下)
+const socket = io({
+    reconnectionAttempts: 5,
+    reconnectionDelay: 3000
+});
 
-// ... (顶部变量和工具函数保持不变) ...
+// --- State Variables ---
+let currentView = 'loading';
+let myUserId = null;
+let myUsername = null;
+let currentRoomId = null;
+let currentGameState = null;
+let isReadyForGame = false;
+let selectedCards = [];
+let currentSortMode = 'rank';
+let currentHint = null;
+let currentHintCycleIndex = 0;
+
+// --- DOM Elements ---
+const loadingView = document.getElementById('loadingView');
+const loginRegisterView = document.getElementById('loginRegisterView');
+const lobbyView = document.getElementById('lobbyView');
+const roomView = document.getElementById('roomView');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const views = { loadingView, loginRegisterView, lobbyView, roomView, gameOverOverlay };
+const regPhoneInput = document.getElementById('regPhone');
+const regPasswordInput = document.getElementById('regPassword');
+const registerButton = document.getElementById('registerButton');
+const loginPhoneInput = document.getElementById('loginPhone');
+const loginPasswordInput = document.getElementById('loginPassword');
+const loginButton = document.getElementById('loginButton');
+const authMessage = document.getElementById('authMessage');
+const logoutButton = document.getElementById('logoutButton');
+const lobbyUsername = document.getElementById('lobbyUsername');
+const createRoomNameInput = document.getElementById('createRoomName');
+const createRoomPasswordInput = document.getElementById('createRoomPassword');
+const createRoomButton = document.getElementById('createRoomButton');
+const roomList = document.getElementById('roomList');
+const lobbyMessage = document.getElementById('lobbyMessage');
+// Room View elements (now potentially part of #gameArea or dynamically managed)
+// const roomNameDisplay = document.getElementById('roomNameDisplay'); // May be removed or integrated
+// const gameModeDisplay = document.getElementById('gameModeDisplay'); // May be removed or integrated
+// const roomStatusDisplay = document.getElementById('roomStatusDisplay'); // May be removed or integrated
+// const leaveRoomButton = document.getElementById('leaveRoomButton'); // May be part of #gameInfoBar
+const centerPileArea = document.getElementById('centerPileArea');
+const lastHandTypeDisplay = document.getElementById('lastHandTypeDisplay');
+const myHandArea = document.getElementById('myHand');
+const myActionsArea = document.getElementById('myActions');
+const playSelectedCardsButton = document.getElementById('playSelectedCardsButton');
+const passTurnButton = document.getElementById('passTurnButton');
+const hintButton = document.getElementById('hintButton');
+const sortHandButton = document.getElementById('sortHandButton');
+const playerAreas = {
+    0: document.getElementById('playerAreaBottom'), // Self
+    1: document.getElementById('playerAreaLeft'),
+    2: document.getElementById('playerAreaTop'),
+    3: document.getElementById('playerAreaRight')
+};
+// const readyButton = document.getElementById('readyButton'); // May be part of #gameInfoBar
+// const gameMessage = document.getElementById('gameMessage'); // May be replaced by #gameStatusDisplay
+const gameOverTitle = document.getElementById('gameOverTitle');
+const gameOverReason = document.getElementById('gameOverReason');
+const gameOverScores = document.getElementById('gameOverScores');
+const backToLobbyButton = document.getElementById('backToLobbyButton');
+
+
+// --- Utility Functions ---
+function showView(viewName) {
+    console.log(`Switching view from ${currentView} to: ${viewName}`);
+    currentView = viewName;
+    for (const key in views) {
+        if (views[key]) {
+            views[key].classList.add('hidden-view');
+            views[key].classList.remove('view-block', 'view-flex');
+        }
+    }
+    const targetView = views[viewName];
+    if (targetView) {
+        targetView.classList.remove('hidden-view');
+        if (viewName === 'roomView' || viewName === 'gameOverOverlay') {
+            targetView.classList.add('view-flex');
+        } else {
+            targetView.classList.add('view-block');
+        }
+    } else { console.warn(`View element not found: ${viewName}`); }
+    const allowScroll = (viewName === 'loginRegisterView' || viewName === 'lobbyView');
+    document.documentElement.style.overflow = allowScroll ? '' : 'hidden';
+    document.body.style.overflow = allowScroll ? '' : 'hidden';
+    clearMessages(); // Clear messages on view switch, except for gameStatusDisplay potentially
+    if (viewName !== 'roomView' && viewName !== 'gameOverOverlay') { // Keep game state if just showing overlay
+        selectedCards = []; currentHint = null; currentHintCycleIndex = 0;
+        if (currentView !== 'gameOverOverlay') currentGameState = null; // Clear game state if not going to game over
+    }
+}
+function displayMessage(element, message, isError = false, isSuccess = false) {
+    if (element) {
+        element.textContent = message;
+        element.classList.remove('error', 'success');
+        if (isError) element.classList.add('error');
+        else if (isSuccess) element.classList.add('success');
+        else element.className = 'message'; // Default for general messages (like gameStatusDisplay might use)
+    }
+}
+function clearMessages() { // Clear auth and lobby messages on view switch
+    [authMessage, lobbyMessage].forEach(el => {
+        if (el) {
+            el.textContent = ''; el.classList.remove('error', 'success'); el.className = 'message';
+        }
+    });
+    // Game messages (like gameStatusDisplay) are handled by renderRoomView or specific events
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
+    if (gameStatusDisp && !gameStatusDisp.classList.contains('error') && !gameStatusDisp.classList.contains('success') && currentView !== 'roomView') {
+        gameStatusDisp.textContent = ''; // Clear if not an error/success and not in room view
+    }
+}
+function getSuitSymbol(suit) { switch (suit?.toUpperCase()) { case 'H': return '♥'; case 'D': return '♦'; case 'C': return '♣'; case 'S': return '♠'; default: return '?'; } }
+function getSuitClass(suit) { switch (suit?.toUpperCase()) { case 'H': return 'hearts'; case 'D': return 'diamonds'; case 'C': return 'clubs'; case 'S': return 'spades'; default: return ''; } }
+const RANK_ORDER_CLIENT = ["4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A", "2", "3"];
+const RANK_VALUES_CLIENT = {}; RANK_ORDER_CLIENT.forEach((r, i) => RANK_VALUES_CLIENT[r] = i);
+const SUIT_ORDER_CLIENT = ["D", "C", "H", "S"];
+const SUIT_VALUES_CLIENT = {}; SUIT_ORDER_CLIENT.forEach((s, i) => SUIT_VALUES_CLIENT[s] = i);
+function compareSingleCardsClient(cardA, cardB) {
+    const rankValueA = RANK_VALUES_CLIENT[cardA.rank]; const rankValueB = RANK_VALUES_CLIENT[cardB.rank];
+    if (rankValueA !== rankValueB) return rankValueA - rankValueB;
+    return SUIT_VALUES_CLIENT[cardA.suit] - SUIT_VALUES_CLIENT[cardB.suit];
+}
+function compareBySuitThenRank(cardA, cardB) {
+    const suitValueA = SUIT_VALUES_CLIENT[cardA.suit]; const suitValueB = SUIT_VALUES_CLIENT[cardB.suit];
+    if (suitValueA !== suitValueB) return suitValueA - suitValueB;
+    return RANK_VALUES_CLIENT[cardA.rank] - RANK_VALUES_CLIENT[cardB.rank];
+}
+
+// --- Rendering Functions ---
+function renderRoomList(rooms) {
+    if (!roomList) return; roomList.innerHTML = '';
+    if (!rooms || rooms.length === 0) { roomList.innerHTML = '<p>当前没有房间。</p>'; return; }
+    rooms.forEach(room => {
+        const item = document.createElement('div'); item.classList.add('room-item');
+        const nameSpan = document.createElement('span'); nameSpan.textContent = `${room.roomName} (${room.playerCount}/${room.maxPlayers})`; item.appendChild(nameSpan);
+        const statusSpan = document.createElement('span'); statusSpan.textContent = `状态: ${room.status}`; statusSpan.classList.add(`status-${room.status}`); item.appendChild(statusSpan);
+        if (room.hasPassword) {
+            const passwordSpan = document.createElement('span'); passwordSpan.textContent = '🔒'; item.appendChild(passwordSpan);
+        }
+        const joinButton = document.createElement('button'); joinButton.textContent = '加入';
+        joinButton.disabled = room.status !== 'waiting' || room.playerCount >= room.maxPlayers;
+        joinButton.onclick = () => joinRoom(room.roomId, room.hasPassword); item.appendChild(joinButton);
+        roomList.appendChild(item);
+    });
+ }
 
 function renderRoomView(state) {
     if (!state || !roomView || !myUserId) {
@@ -11,8 +156,7 @@ function renderRoomView(state) {
     }
     currentGameState = state;
 
-    // 更新整合到牌桌内的信息
-    const gameInfoBar = document.getElementById('gameInfoBar'); // 需要在HTML中添加这个元素
+    const gameInfoBar = document.getElementById('gameInfoBar');
     if (gameInfoBar) {
         const roomNameIdEl = gameInfoBar.querySelector('.room-name-id');
         if (roomNameIdEl) {
@@ -22,26 +166,28 @@ function renderRoomView(state) {
             `;
         }
     }
-    // 移除对 #roomNameDisplay 和 #gameModeDisplay 的直接操作，因为它们可能已从主HTML结构中移除或由 gameInfoBar 处理
 
-    // 更新整合到牌桌底部的状态显示
-    const gameStatusDisplay = document.getElementById('gameStatusDisplay'); // 需要在HTML中添加这个元素
-    if (gameStatusDisplay) {
+    const gameStatusDisplay = document.getElementById('gameStatusDisplay');
+    const gameMessageElement = gameStatusDisplay || document.getElementById('gameMessage'); // Fallback
+
+    if (gameMessageElement) {
         if (state.status === 'waiting') {
             const numPlayers = state.players.length;
             const maxPlayers = 4;
-            gameStatusDisplay.textContent = `等待 ${numPlayers}/${maxPlayers} 位玩家准备...`;
+            displayMessage(gameMessageElement, `等待 ${numPlayers}/${maxPlayers} 位玩家准备...`, false);
         } else if (state.status === 'playing') {
             const currentPlayer = state.players.find(p => p.userId === state.currentPlayerId);
-            gameStatusDisplay.textContent = currentPlayer ? (currentPlayer.userId === myUserId ? '轮到你出牌！' : `等待 ${currentPlayer.username} 出牌...`) : '游戏进行中...';
+            const turnMessage = currentPlayer ? (currentPlayer.userId === myUserId ? '轮到你出牌！' : `等待 ${currentPlayer.username} 出牌...`) : '游戏进行中...';
+            // Only update if it's a new turn message and not an error/success message
+            if (gameMessageElement.textContent !== turnMessage && !gameMessageElement.classList.contains('error') && !gameMessageElement.classList.contains('success')) {
+                 displayMessage(gameMessageElement, turnMessage, false);
+            }
         } else if (state.status === 'finished') {
-            gameStatusDisplay.textContent = '游戏已结束';
+            displayMessage(gameMessageElement, '游戏已结束', false);
         } else {
-            gameStatusDisplay.textContent = `状态: ${state.status}`;
+            displayMessage(gameMessageElement, `状态: ${state.status}`, false);
         }
     }
-    // 移除对 #roomStatusDisplay 的直接操作
-
 
     Object.values(playerAreas).forEach(clearPlayerAreaDOM);
     const myPlayer = state.players.find(p => p.userId === myUserId);
@@ -63,33 +209,68 @@ function renderRoomView(state) {
         centerPileArea.appendChild(placeholder);
     }
     lastHandTypeDisplay.textContent = state.lastHandInfo ? `类型: ${state.lastHandInfo.type}` : '新回合';
-    updateRoomControls(state); // 这个函数现在主要控制准备按钮和动作按钮的显隐及状态
+    updateRoomControls(state);
     if (state.currentPlayerId !== myUserId || state.status !== 'playing') clearHintsAndSelection(false);
 }
-
-// ... (clearPlayerAreaDOM, renderPlayerArea 保持不变) ...
+function clearPlayerAreaDOM(area) {
+     if (!area) return;
+     area.classList.remove('current-turn');
+     const nameEl = area.querySelector('.playerName');
+     const roleEl = area.querySelector('.playerRole');
+     const infoEl = area.querySelector('.playerInfo');
+     const cardsEl = area.querySelector('.playerCards');
+     const handCountEl = area.querySelector('.hand-count-display');
+     if (nameEl) nameEl.textContent = '空位';
+     if (roleEl) roleEl.textContent = '';
+     if (infoEl) infoEl.innerHTML = '';
+     if (cardsEl) cardsEl.innerHTML = '';
+     if (handCountEl) handCountEl.remove();
+     if (area.id === 'playerAreaBottom') {
+        const actions = area.querySelector('.my-actions');
+        if(actions) { actions.classList.add('hidden-view'); actions.classList.remove('view-flex');}
+     }
+}
+function renderPlayerArea(container, playerData, isMe, state) {
+    const nameEl = container.querySelector('.playerName');
+    const roleEl = container.querySelector('.playerRole');
+    const infoEl = container.querySelector('.playerInfo');
+    const cardsEl = container.querySelector('.playerCards');
+    if (nameEl) nameEl.textContent = playerData.username + (isMe ? ' (你)' : '');
+    if (roleEl) roleEl.textContent = playerData.role ? `[${playerData.role}]` : '[?]';
+    if (infoEl) {
+        let infoText = `总分: ${playerData.score || 0}`;
+        if (playerData.finished) infoText += ' <span class="finished">[已完成]</span>';
+        else if (!playerData.connected && state.status !== 'waiting') infoText += ' <span class="disconnected">[已断线]</span>';
+        else if (state.status === 'waiting') infoText += playerData.isReady ? ' <span class="ready">[已准备]</span>' : ' <span class="not-ready">[未准备]</span>';
+        infoEl.innerHTML = infoText;
+    }
+    if (cardsEl) renderPlayerCards(cardsEl, playerData, isMe, state.status === 'playing' && state.currentPlayerId === myUserId);
+    if (state.status === 'playing' && playerData.userId === state.currentPlayerId) container.classList.add('current-turn');
+    else container.classList.remove('current-turn');
+}
 
 function fanCards(cardContainer, cardElements, areaId) {
     const numCards = cardElements.length;
     if (numCards === 0) return;
 
-    const cardWidth = 60; // Updated from CSS .card width
-    const cardHeight = 84; // Updated from CSS .card height
+    const cardWidth = 60;
+    const cardHeight = 84;
 
-    if (areaId === 'playerAreaBottom') { // My hand -平铺
-        // 卡牌在CSS中已设为 position: relative; margin: 0 2px;
-        // 不需要JS做特别的平铺定位，CSS flexbox会处理
-        // 但为了确保z-index正确（例如选中时），可以设置一下
+    if (areaId === 'playerAreaBottom') {
+        // My hand cards are now position: relative in CSS, laid out by flexbox in .playerCards
+        // No complex JS fanning needed for self, CSS handles overlap via negative margin if desired
+        // Or just natural spacing if no negative margin.
+        // Ensure z-index for hover/selection effects
         cardElements.forEach((card, i) => {
             card.style.zIndex = i;
         });
-    } else { // Opponent hands - 扇形/堆叠
-        let maxAngle = 25; // 减小扇形角度
+    } else { // Opponent hands -扇形/堆叠
+        let maxAngle = 25;
         let angleStep = numCards > 1 ? maxAngle / (numCards - 1) : 0;
-        angleStep = Math.min(angleStep, 4); // 每张牌最大角度减小
+        angleStep = Math.min(angleStep, 4);
 
         let initialRotation = -((numCards - 1) * angleStep) / 2;
-        let offsetMultiplier = 1.5; // 牌的堆叠偏移
+        let offsetMultiplier = 1.5;
 
         cardElements.forEach((card, i) => {
             const rotation = initialRotation + i * angleStep;
@@ -113,6 +294,7 @@ function fanCards(cardContainer, cardElements, areaId) {
     }
 }
 
+
 function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
     container.innerHTML = '';
     const cardElements = [];
@@ -128,12 +310,7 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
             else if (currentSortMode === 'suit') sortedHand.sort(compareBySuitThenRank);
 
             sortedHand.forEach(cardData => {
-                const cardElement = renderCard(cardData, false); // isCenterPileCard 默认为 false
-                // cardElement.style.position = 'relative'; // 确保自己的牌是relative，以便平铺
-                // cardElement.style.margin = '0 2px'; // 水平间距
-                // cardElement.style.bottom = 'auto'; // 重置可能从其他地方继承的bottom
-                // cardElement.style.left = 'auto';   // 重置可能从其他地方继承的left
-
+                const cardElement = renderCard(cardData, false);
                 const isSelected = selectedCards.some(c => c.rank === cardData.rank && c.suit === cardData.suit);
                 const isHinted = currentHint && currentHint.cards.some(c => c.rank === cardData.rank && c.suit === cardData.suit);
                 if (isSelected) cardElement.classList.add('selected');
@@ -145,11 +322,10 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
                     cardElement.classList.add('disabled');
                 }
                 container.appendChild(cardElement);
-                cardElements.push(cardElement); // 仍然收集，以备将来可能的JS交互
+                cardElements.push(cardElement);
             });
         }
     } else {
-        // ... (对手牌的逻辑与上一版类似，使用 fanCards) ...
         if (playerData.finished) {
             container.innerHTML = '<span style="color:gray; font-style:italic;">已出完</span>';
         } else if (playerData.handCount > 0) {
@@ -180,24 +356,37 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
     }
 }
 
+function renderCard(cardData, isHidden, isCenterPileCard = false) {
+    const cardDiv = document.createElement('div'); cardDiv.classList.add('card');
+    if (isCenterPileCard) {
+        cardDiv.style.position = 'relative';
+        cardDiv.style.margin = '3px';
+    } else if (myHandArea && myHandArea.contains(cardDiv.parentNode)) { // Check if it's my card
+        // My cards are styled via CSS to be relative and use margin for spacing
+        // No need for explicit style.position = 'relative' here if CSS handles it
+    }
 
-// ... (renderCard, updateRoomControls 和其他事件处理器、socket监听器等与上一个“完整版”client.js一致) ...
-// 确保您使用的是上一回复中提供的 client.js 的完整版本，并只修改上面展示的几个函数。
-// 主要是 renderRoomView 中对头部和底部状态栏的处理方式，以及 renderPlayerCards 和 fanCards 对自己手牌的平铺处理。
-// 为避免再次粘贴超长代码，这里只展示了关键的修改部分。
 
-// 确保 updateRoomControls 函数只处理 readyButton 和 myActions 的显隐和状态
+    if (isHidden || !cardData) {
+        cardDiv.classList.add('hidden');
+    } else {
+        cardDiv.classList.add('visible'); cardDiv.classList.add(getSuitClass(cardData.suit));
+        const rankSpan = document.createElement('span'); rankSpan.classList.add('rank'); rankSpan.textContent = cardData.rank === 'T' ? '10' : cardData.rank; cardDiv.appendChild(rankSpan);
+        const suitSpan = document.createElement('span'); suitSpan.classList.add('suit'); suitSpan.textContent = getSuitSymbol(cardData.suit); cardDiv.appendChild(suitSpan);
+        cardDiv.dataset.suit = cardData.suit; cardDiv.dataset.rank = cardData.rank;
+    }
+    return cardDiv;
+ }
 function updateRoomControls(state) {
     if (!state || !myUserId) return;
     const myPlayerInState = state.players.find(p => p.userId === myUserId);
     if (!myPlayerInState) return;
 
-    // 准备按钮现在可能放在 gameInfoBar 或其他地方，如果还用 readyButton ID，则逻辑不变
-    const readyButtonInstance = document.getElementById('readyButton'); // 获取实例
+    const readyButtonInstance = document.getElementById('readyButton');
     if (readyButtonInstance) {
         if (state.status === 'waiting') {
             readyButtonInstance.classList.remove('hidden-view');
-            readyButtonInstance.classList.add('view-inline-block'); // Or appropriate display
+            readyButtonInstance.classList.add('view-inline-block');
             readyButtonInstance.textContent = myPlayerInState.isReady ? '取消准备' : '准备';
             readyButtonInstance.classList.toggle('ready', myPlayerInState.isReady);
             readyButtonInstance.disabled = false;
@@ -228,11 +417,6 @@ function updateRoomControls(state) {
     }
 }
 
-
-// --- 其余的 client.js 代码 (从 handleRegister 开始到文件末尾) ---
-// --- 请确保这部分与我倒数第二个回复中提供的“完整版 client.js”一致 ---
-// ... (handleRegister, handleLogin, handleLogout, etc. ... initClientSession, setupEventListeners, DOMContentLoaded)
-// (此处省略大量重复代码，请以上一个“完整版”为准，仅需确认上面修改的几个函数)
 function handleRegister() {
     const phone = regPhoneInput.value.trim(); const password = regPasswordInput.value;
     if (!phone || !password) { displayMessage(authMessage, '请输入手机号和密码。', true); return; }
@@ -260,17 +444,41 @@ function handleLogin() {
          }
      });
  }
-function handleLogout() {
-      console.log('Logging out...');
+function handleLogout() { // This function is for the lobby logout button
+      console.log('Logging out from lobby...');
       try { localStorage.removeItem('kkUserId'); localStorage.removeItem('kkUsername'); }
       catch (e) { console.warn('LocalStorage error while removing user session:', e); }
       myUserId = null; myUsername = null; currentRoomId = null; currentGameState = null; isReadyForGame = false; selectedCards = []; currentHint = null; currentHintCycleIndex = 0;
 
-      if (socket.connected) socket.disconnect();
-      socket.connect();
+      if (socket.connected) socket.disconnect(); // Full disconnect
+      socket.connect(); // Reconnect to get a fresh session
 
       showView('loginRegisterView');
  }
+
+function handleGameLeave() { // Specific function for the in-game leave button
+    if (!currentRoomId) {
+        console.log("Not in a room to leave.");
+        handleReturnToLobby(); // Go to lobby if somehow no room ID
+        return;
+    }
+    console.log(`Attempting to leave room: ${currentRoomId} from game view.`);
+    const actualLeaveButton = document.getElementById('leaveRoomButton');
+    if (actualLeaveButton) actualLeaveButton.disabled = true;
+
+    socket.emit('leaveRoom', (response) => {
+        if (actualLeaveButton) actualLeaveButton.disabled = false;
+        if (response.success) {
+            // Don't display lobbyMessage here, as we are leaving room view
+            handleReturnToLobby();
+        } else {
+            const gameStatusDisp = document.getElementById('gameStatusDisplay');
+            displayMessage(gameStatusDisp || alert, response.message || '离开房间失败。', true); // Show error in game status or alert
+        }
+    });
+}
+
+
 function handleCreateRoom() {
      const roomName = createRoomNameInput.value.trim(); const password = createRoomPasswordInput.value;
      if (!roomName) { displayMessage(lobbyMessage, '请输入房间名称。', true); return; }
@@ -304,8 +512,7 @@ function joinRoom(roomId, needsPassword) {
  }
 function handleReadyClick() {
       if (!currentRoomId || !currentGameState) return;
-      // 准备按钮可能已移到 gameInfoBar, 需要更新其引用或通过ID获取
-      const actualReadyButton = document.getElementById('readyButton'); // 或者您新位置的按钮ID
+      const actualReadyButton = document.getElementById('readyButton');
       if (!actualReadyButton) return;
 
       const desiredReadyState = !isReadyForGame;
@@ -313,43 +520,12 @@ function handleReadyClick() {
       socket.emit('playerReady', desiredReadyState, (response) => {
            actualReadyButton.disabled = false;
            if (!response.success) {
-               displayMessage(gameMessage, response.message || "无法改变准备状态。", true);
+               const gameStatusDisp = document.getElementById('gameStatusDisplay');
+               displayMessage(gameStatusDisp, response.message || "无法改变准备状态。", true);
            }
       });
  }
 
-function handleLeaveRoom() {
-    if (!currentRoomId && currentView === 'roomView') {
-        console.warn("In room view but no currentRoomId, forcing back to lobby.");
-        currentRoomId = null; currentGameState = null; selectedCards = []; currentHint = null; currentHintCycleIndex = 0;
-        showView('lobbyView');
-        socket.emit('listRooms', (rooms) => renderRoomList(rooms));
-        return;
-    }
-    if (!currentRoomId) {
-        console.log("Not in a room to leave.");
-        return;
-    }
-
-    console.log(`Attempting to leave room: ${currentRoomId}`);
-    const actualLeaveButton = document.getElementById('leaveRoomButton'); // 或者您新位置的按钮ID
-    if (actualLeaveButton) actualLeaveButton.disabled = true;
-
-
-    socket.emit('leaveRoom', (response) => {
-        if (actualLeaveButton) actualLeaveButton.disabled = false;
-        if (response.success) {
-            displayMessage(lobbyMessage, response.message || '已离开房间。', false, true);
-            currentRoomId = null; currentGameState = null; selectedCards = []; currentHint = null; currentHintCycleIndex = 0; isReadyForGame = false;
-            showView('lobbyView');
-            socket.emit('listRooms', (rooms) => renderRoomList(rooms));
-        } else {
-            // 如果离开失败，游戏内消息区域可能不存在了，可以考虑用alert
-            alert(response.message || '离开房间失败。');
-            // displayMessage(gameMessage, response.message || '离开房间失败。', true);
-        }
-    });
-}
 
 function handleSortHand() {
     if (currentSortMode === 'rank') currentSortMode = 'suit';
@@ -377,18 +553,19 @@ function toggleCardSelection(cardData, cardElement) {
     }
 }
 function handlePlaySelectedCards() {
-    if (selectedCards.length === 0) { displayMessage(gameStatusDisplay, '请先选择要出的牌。', true); return; } // 使用 gameStatusDisplay
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
+    if (selectedCards.length === 0) { displayMessage(gameStatusDisp, '请先选择要出的牌。', true); return; }
     if (!currentRoomId || !currentGameState || currentGameState.status !== 'playing' || currentGameState.currentPlayerId !== myUserId) {
-        displayMessage(gameStatusDisplay, '现在不是你的回合或状态无效。', true); return;
+        displayMessage(gameStatusDisp, '现在不是你的回合或状态无效。', true); return;
     }
     setGameActionButtonsDisabled(true);
 
     socket.emit('playCard', selectedCards, (response) => {
         if (currentGameState && currentGameState.currentPlayerId === myUserId) {
-            setGameActionButtonsDisabled(false);
+            setGameActionButtonsDisabled(false); // Re-enable if still my turn (e.g. invalid play)
         }
         if (!response.success) {
-            displayMessage(gameStatusDisplay, response.message || '出牌失败。', true);
+            displayMessage(gameStatusDisp, response.message || '出牌失败。', true);
         } else {
             selectedCards = [];
             clearHintsAndSelection(true);
@@ -396,57 +573,62 @@ function handlePlaySelectedCards() {
     });
 }
 function handlePassTurn() {
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (!currentRoomId || !currentGameState || currentGameState.status !== 'playing' || currentGameState.currentPlayerId !== myUserId) {
-        displayMessage(gameStatusDisplay, '现在不是你的回合或状态无效。', true); return;
+        displayMessage(gameStatusDisp, '现在不是你的回合或状态无效。', true); return;
     }
-    if (passTurnButton.disabled) {
-        displayMessage(gameStatusDisplay, '你必须出牌。', true);
+    if (passTurnButton.disabled) { // Check if button logic already disabled it
+        displayMessage(gameStatusDisp, '你必须出牌。', true);
         return;
     }
     setGameActionButtonsDisabled(true);
     selectedCards = [];
 
     socket.emit('passTurn', (response) => {
-        if (currentGameState && currentGameState.currentPlayerId === myUserId) {
+        if (currentGameState && currentGameState.currentPlayerId === myUserId) { // Re-enable if still my turn
              setGameActionButtonsDisabled(false);
         }
         if (!response.success) {
-            displayMessage(gameStatusDisplay, response.message || 'Pass 失败。', true);
+            displayMessage(gameStatusDisp, response.message || 'Pass 失败。', true);
         } else {
             clearHintsAndSelection(true);
         }
     });
 }
 function handleHint() {
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (!currentRoomId || !currentGameState || currentGameState.status !== 'playing' || currentGameState.currentPlayerId !== myUserId) {
-        displayMessage(gameStatusDisplay, '现在不是你的回合或状态无效。', true); return;
+        displayMessage(gameStatusDisp, '现在不是你的回合或状态无效。', true); return;
     }
     clearHintsAndSelection(false);
     setGameActionButtonsDisabled(true);
 
     socket.emit('requestHint', currentHintCycleIndex, (response) => {
-        if (currentGameState && currentGameState.currentPlayerId === myUserId) {
+        if (currentGameState && currentGameState.currentPlayerId === myUserId) { // Re-enable if still my turn
             setGameActionButtonsDisabled(false);
         }
         if (response.success && response.hint && response.hint.cards) {
-            displayMessage(gameStatusDisplay, '找到提示！(点击提示可尝试下一个)', false, true);
+            displayMessage(gameStatusDisp, '找到提示！(点击提示可尝试下一个)', false, true);
             currentHint = response.hint;
             currentHintCycleIndex = response.nextHintIndex;
             highlightHintedCards(currentHint.cards);
         } else {
-            displayMessage(gameStatusDisplay, response.message || '没有可出的牌或无更多提示。', true);
+            displayMessage(gameStatusDisp, response.message || '没有可出的牌或无更多提示。', true);
             currentHint = null;
             currentHintCycleIndex = 0;
         }
     });
 }
 function setGameActionButtonsDisabled(disabled) {
-    if(playSelectedCardsButton) playSelectedCardsButton.disabled = disabled || selectedCards.length === 0;
-    if(passTurnButton) { // Pass button logic moved to updateRoomControls for consistency
-        updateRoomControls(currentGameState); // Call this to re-evaluate pass button state
-        if (disabled) passTurnButton.disabled = true; // Still allow forcing disable
+    // This function is now mostly managed by updateRoomControls.
+    // Retained for direct calls if needed, but primary logic is in updateRoomControls.
+    if (disabled) { // If forcing disable
+        if(playSelectedCardsButton) playSelectedCardsButton.disabled = true;
+        if(passTurnButton) passTurnButton.disabled = true;
+        if(hintButton) hintButton.disabled = true;
+    } else if (currentGameState && currentGameState.currentPlayerId === myUserId) { // If enabling, respect game state
+        updateRoomControls(currentGameState);
     }
-    if(hintButton) hintButton.disabled = disabled;
 }
 
 function highlightHintedCards(hintedCardsArray) {
@@ -472,6 +654,24 @@ function clearHintsAndSelection(resetHintCycle = true) {
         hintedElements.forEach(el => el.classList.remove('hinted'));
     }
 }
+
+function handleReturnToLobby() { // Centralized function
+    console.log("Returning to lobby.");
+    currentRoomId = null;
+    currentGameState = null;
+    isReadyForGame = false;
+    selectedCards = [];
+    currentHint = null;
+    currentHintCycleIndex = 0;
+
+    if (gameOverOverlay && !gameOverOverlay.classList.contains('hidden-view')) {
+        gameOverOverlay.classList.add('hidden-view');
+        gameOverOverlay.classList.remove('view-flex');
+    }
+    showView('lobbyView');
+    socket.emit('listRooms', (rooms) => renderRoomList(rooms));
+}
+
 function showGameOver(scoreResultData) {
     if (!scoreResultData) {
         console.warn("showGameOver called with no data.");
@@ -502,8 +702,13 @@ function showGameOver(scoreResultData) {
     showView('gameOverOverlay');
 }
 
+// --- Socket Event Listeners ---
 socket.on('connect', () => {
     console.log('Connected to server! Socket ID:', socket.id);
+    if (gameOverOverlay && !gameOverOverlay.classList.contains('hidden-view')) {
+        gameOverOverlay.classList.add('hidden-view');
+        gameOverOverlay.classList.remove('view-flex');
+    }
     initClientSession();
 });
 socket.on('disconnect', (reason) => {
@@ -527,6 +732,7 @@ socket.on('playerReadyUpdate', ({ userId, isReady }) => {
     }
 });
 socket.on('playerJoined', (newPlayerInfo) => {
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (currentGameState && currentView === 'roomView') {
         console.log('Player joined:', newPlayerInfo.username);
         const existingPlayer = currentGameState.players.find(p => p.userId === newPlayerInfo.userId);
@@ -537,10 +743,11 @@ socket.on('playerJoined', (newPlayerInfo) => {
         }
         currentGameState.players.sort((a,b) => a.slot - b.slot);
         renderRoomView(currentGameState);
-        displayMessage(gameStatusDisplay, `${newPlayerInfo.username} 加入了房间。`, false, true); // Use gameStatusDisplay
+        displayMessage(gameStatusDisp, `${newPlayerInfo.username} 加入了房间。`, false, true);
     }
 });
 socket.on('playerLeft', ({ userId, username, reason }) => {
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (currentGameState && currentView === 'roomView') {
         console.log('Player left:', username, reason);
         const player = currentGameState.players.find(p => p.userId === userId);
@@ -549,10 +756,11 @@ socket.on('playerLeft', ({ userId, username, reason }) => {
             player.isReady = false;
         }
         renderRoomView(currentGameState);
-        displayMessage(gameStatusDisplay, `${username} ${reason === 'disconnected' ? '断线了' : '离开了房间'}。`, true); // Use gameStatusDisplay
+        displayMessage(gameStatusDisp, `${username} ${reason === 'disconnected' ? '断线了' : '离开了房间'}。`, true);
     }
 });
 socket.on('playerReconnected', (reconnectedPlayerInfo) => {
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
      if (currentGameState && currentView === 'roomView') {
         console.log('Player reconnected:', reconnectedPlayerInfo.username);
         const player = currentGameState.players.find(p => p.userId === reconnectedPlayerInfo.userId);
@@ -563,20 +771,20 @@ socket.on('playerReconnected', (reconnectedPlayerInfo) => {
             currentGameState.players.sort((a,b) => a.slot - b.slot);
         }
         renderRoomView(currentGameState);
-        displayMessage(gameStatusDisplay, `${reconnectedPlayerInfo.username} 重新连接。`, false, true); // Use gameStatusDisplay
+        displayMessage(gameStatusDisp, `${reconnectedPlayerInfo.username} 重新连接。`, false, true);
     }
 });
 socket.on('gameStarted', (initialGameState) => {
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (currentView === 'roomView' && currentRoomId === initialGameState.roomId) {
         console.log('Game started!', initialGameState);
-        displayMessage(gameStatusDisplay, '游戏开始！祝你好运！', false, true); // Use gameStatusDisplay
+        displayMessage(gameStatusDisp, '游戏开始！祝你好运！', false, true);
         selectedCards = []; clearHintsAndSelection(true);
         renderRoomView(initialGameState);
     }
 });
 socket.on('gameStateUpdate', (newState) => {
     if (currentView === 'roomView' && currentRoomId === newState.roomId) {
-        // console.log('GameStateUpdate received. Current Player:', newState.currentPlayerId, 'My ID:', myUserId, 'My turn?', newState.currentPlayerId === myUserId);
         if (currentGameState && (currentGameState.currentPlayerId === myUserId && newState.currentPlayerId !== myUserId) ||
             (currentGameState.status !== newState.status) ) {
             selectedCards = [];
@@ -588,7 +796,8 @@ socket.on('gameStateUpdate', (newState) => {
     }
 });
 socket.on('invalidPlay', ({ message }) => {
-    displayMessage(gameStatusDisplay, `操作无效: ${message}`, true); // Use gameStatusDisplay
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
+    displayMessage(gameStatusDisp, `操作无效: ${message}`, true);
     if (currentGameState && currentGameState.currentPlayerId === myUserId) {
         setGameActionButtonsDisabled(false);
     }
@@ -598,11 +807,16 @@ socket.on('gameOver', (results) => {
         console.log('Game Over event received:', results);
         currentGameState.status = 'finished';
         showGameOver(results);
+    }  else if (currentView === 'roomView' && !currentGameState && results && results.roomId === currentRoomId) {
+        // If refreshed into a finished game, and we get results for *this* room
+        console.log('Game Over event received for current room after refresh.');
+        showGameOver(results);
     }
 });
 socket.on('gameStartFailed', ({ message }) => {
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (currentView === 'roomView') {
-        displayMessage(gameStatusDisplay, `游戏开始失败: ${message}`, true); // Use gameStatusDisplay
+        displayMessage(gameStatusDisp, `游戏开始失败: ${message}`, true);
         if (currentGameState) {
             currentGameState.players.forEach(p => p.isReady = false);
             isReadyForGame = false;
@@ -611,11 +825,12 @@ socket.on('gameStartFailed', ({ message }) => {
     }
 });
 socket.on('allPlayersResetReady', () => {
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (currentGameState && currentView === 'roomView' && currentGameState.status === 'waiting') {
         currentGameState.players.forEach(p => p.isReady = false);
         isReadyForGame = false;
         renderRoomView(currentGameState);
-        displayMessage(gameStatusDisplay, '部分玩家状态变更，请重新准备。', true); // Use gameStatusDisplay
+        displayMessage(gameStatusDisp, '部分玩家状态变更，请重新准备。', true);
     }
 });
 
@@ -639,16 +854,24 @@ function initClientSession() {
                 if (lobbyUsername) lobbyUsername.textContent = myUsername;
 
                 if (response.roomState) {
-                    currentRoomId = response.roomState.roomId;
-                    showView('roomView');
-                    renderRoomView(response.roomState);
+                    currentRoomId = response.roomState.roomId; // Set currentRoomId before potential early exit
+                    if (response.roomState.status === 'finished') {
+                        console.log("Reconnected to a finished game room, redirecting to lobby.");
+                        // Potentially show game over for a brief moment if results are in roomState
+                        // showGameOver(response.roomState.lastGameResult || { result: "游戏已结束", finalScores: response.roomState.players });
+                        // setTimeout(handleReturnToLobby, 1000); // Slight delay then go to lobby
+                        handleReturnToLobby();
+                    } else {
+                        showView('roomView');
+                        renderRoomView(response.roomState);
+                    }
                 } else {
                     showView('lobbyView');
+                    socket.emit('listRooms', (rooms) => renderRoomList(rooms));
                 }
-                // displayMessage(authMessage, response.message, !response.success, response.success); // Reauth message not shown on auth view by default
             } else {
                 try { localStorage.removeItem('kkUserId'); localStorage.removeItem('kkUsername'); } catch (e) {}
-                displayMessage(authMessage, response.message, true); // Show error on auth view
+                displayMessage(authMessage, response.message, true);
                 showView('loginRegisterView');
             }
         });
@@ -661,16 +884,18 @@ function initClientSession() {
 function setupEventListeners() {
     if(registerButton) registerButton.addEventListener('click', handleRegister);
     if(loginButton) loginButton.addEventListener('click', handleLogin);
-    if(logoutButton) logoutButton.addEventListener('click', handleLogout); // Assuming this is now inside #gameInfoBar if used
+    const lobbyLogoutButton = document.getElementById('logoutButton'); // Lobby logout
+    if(lobbyLogoutButton) lobbyLogoutButton.addEventListener('click', handleLogout);
+
     if(createRoomButton) createRoomButton.addEventListener('click', handleCreateRoom);
 
-    // Need to get readyButton and leaveRoomButton by ID if they are dynamically added or always present
+    // Event delegation for buttons that might be inside #gameInfoBar or other dynamic areas
     document.body.addEventListener('click', function(event) {
         if (event.target.id === 'readyButton') {
             handleReadyClick();
         }
-        if (event.target.id === 'leaveRoomButton') { // Ensure this button is correctly referenced
-            handleLeaveRoom();
+        if (event.target.id === 'leaveRoomButton') { // Game leave button
+            handleGameLeave();
         }
     });
 
@@ -678,12 +903,7 @@ function setupEventListeners() {
     if(playSelectedCardsButton) playSelectedCardsButton.addEventListener('click', handlePlaySelectedCards);
     if(passTurnButton) passTurnButton.addEventListener('click', handlePassTurn);
     if(hintButton) hintButton.addEventListener('click', handleHint);
-    if(backToLobbyButton) backToLobbyButton.addEventListener('click', () => {
-        currentRoomId = null; currentGameState = null; isReadyForGame = false;
-        selectedCards = []; currentHint = null; currentHintCycleIndex = 0;
-        showView('lobbyView');
-        socket.emit('listRooms', (rooms) => renderRoomList(rooms));
-    });
+    if(backToLobbyButton) backToLobbyButton.addEventListener('click', handleReturnToLobby); // Use centralized function
 
     regPasswordInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleRegister(); });
     loginPasswordInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
