@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KK 在线纸牌</title>
-    <link rel="stylesheet" href="style.css?v=1.0.7"> <!-- 版本号递增 -->
+    <link rel="stylesheet" href="style.css?v=1.0.8"> <!-- 版本号递增 -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#4a4a4a"/>
+    <meta name="theme-color" content="#e8e8e8"/> <!-- 主题色改为浅灰色 -->
     <link rel="apple-touch-icon" href="/images/icon-192x192.png">
 </head>
 <body>
@@ -53,7 +53,6 @@
                     <span class="room-name">房间名称</span>
                     <span class="room-id">ID: ------</span>
                 </div>
-                <!-- 准备按钮移到自己的头像旁边，所以从这里移除 -->
                 <button id="leaveRoomButton">离开</button>
             </div>
 
@@ -94,14 +93,14 @@
             </div>
 
             <div id="playerAreaBottom" class="playerArea selfArea">
-                <div class="playerHeader"> <!-- 自己的 Player Header -->
-                     <div style="display: flex; align-items: center;"> <!-- 左侧头像和信息 -->
+                <div class="playerHeader">
+                     <div style="display: flex; align-items: center;">
                         <div class="player-avatar"></div>
                         <div class="player-details">
                             <span class="playerName">你</span><span class="playerRole">[?]</span>
                         </div>
                      </div>
-                     <button id="readyButton" class="hidden-view view-inline-block">准备</button> <!-- 准备按钮放这里 -->
+                     <button id="readyButton" class="hidden-view view-inline-block">准备</button>
                 </div>
                 <div class="playerInfo">总分: 0</div>
                 <div id="myHand" class="playerCards myHand"></div>
@@ -130,6 +129,6 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="client.js?v=1.0.7"></script>
+    <script src="client.js?v=1.0.8"></script>
 </body>
 </html>
