@@ -30,7 +30,7 @@ io.on('connection', (socket) => {
     console.log(`[SERVER] Client connected: ${socket.id}`);
 
     // Initialize managers for this socket connection
-    authManager.init(socket, io); // Pass io to authManager if it needs to emit after auth
+    authManager.init(socket);
     roomManager.init(socket, io); // Pass io to roomManager for broadcasting
 
     // Handle disconnection
@@ -39,8 +39,7 @@ io.on('connection', (socket) => {
         roomManager.handleDisconnect(socket); // Let roomManager handle cleanup
     });
 
-    // Send initial room list to newly connected (but not yet logged in) clients
-    socket.emit('roomListUpdate', roomManager.getPublicRoomList());
+     socket.emit('roomListUpdate', roomManager.getPublicRoomList());
 });
 
 // Start the server
@@ -51,10 +50,9 @@ server.listen(PORT, '0.0.0.0', () => {
     }
 });
 
-// Graceful shutdown (optional but good practice)
+// Graceful shutdown
 process.on('SIGINT', () => {
     console.log('[SERVER] Shutting down...');
-    authManager.saveUsers(); // Ensure users are saved on shutdown
     server.close(() => {
         console.log('[SERVER] Server closed.');
         process.exit(0);
