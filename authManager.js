@@ -31,17 +31,17 @@ function saveUsers() {
 }
 
 function findUserById(userId) {
-     for (const phone in users) {
-         if (users[phone].userId === userId) {
-             // Return a copy to prevent modification? Or trust internal usage.
-             return { ...users[phone], phoneNumber: phone }; // Include phone if needed
-         }
-     }
-     return null;
+    for (const phone in users) {
+        if (users[phone].userId === userId) {
+            // Return a copy of user data excluding sensitive info if needed
+            return { userId: users[phone].userId, username: users[phone].username };
+        }
+    }
+    return null;
 }
 
 
-function init(socket, io) { // Receive io if needed later
+function init(socket) {
     socket.on('register', async (data, callback) => {
         const { phoneNumber, password } = data;
         if (!phoneNumber || !password || typeof phoneNumber !== 'string' || typeof password !== 'string' || password.length < 4) {
@@ -82,10 +82,9 @@ function init(socket, io) { // Receive io if needed later
                 socket.userId = userData.userId;
                 socket.username = userData.username;
                 console.log(`[AUTH] User logged in: ${socket.username} (ID: ${socket.userId}), Socket: ${socket.id}`);
-                // Inform roomManager about authentication
+                callback({ success: true, message: '登录成功！', userId: userData.userId, username: userData.username });
                 const roomManager = require('./roomManager');
                 roomManager.handleAuthentication(socket);
-                callback({ success: true, message: '登录成功！', userId: userData.userId, username: userData.username });
             } else {
                 callback({ success: false, message: '密码错误。' });
             }
@@ -95,10 +94,17 @@ function init(socket, io) { // Receive io if needed later
         }
     });
 
-    // --- Reauthentication Logic ---
     socket.on('reauthenticate', (storedUserId, callback) => {
         console.log(`[AUTH] Reauthentication attempt for userId: ${storedUserId} on socket: ${socket.id}`);
-        const userData = findUserById(storedUserId); // Use helper function
+        let userData = null;
+        let userPhone = null; // Store the phone number for lookup
+        for (const phone in users) {
+            if (users[phone].userId === storedUserId) {
+                userData = users[phone];
+                userPhone = phone; // Found the user
+                break;
+            }
+        }
 
         if (userData) {
             socket.userId = userData.userId;
@@ -127,7 +133,8 @@ function init(socket, io) { // Receive io if needed later
                          username: userData.username,
                          roomState: null
                      });
-                     roomManager.handleAuthentication(socket); // Still trigger lobby update
+                      // Send room list if couldn't rejoin
+                     socket.emit('roomListUpdate', roomManager.getPublicRoomList());
                  }
             } else {
                  callback({
@@ -137,8 +144,11 @@ function init(socket, io) { // Receive io if needed later
                      username: userData.username,
                      roomState: null
                  });
-                 roomManager.handleAuthentication(socket); // Trigger lobby update
+                 socket.emit('roomListUpdate', roomManager.getPublicRoomList());
             }
+            // Let room manager know about authenticated user
+            roomManager.handleAuthentication(socket);
+
         } else {
             console.log(`[AUTH] Reauthentication failed: userId ${storedUserId} not found.`);
             callback({ success: false, message: '无效的用户凭证。' });
@@ -150,4 +160,5 @@ module.exports = {
     init,
     loadUsers,
     saveUsers,
+    findUserById
 };
