@@ -3,8 +3,8 @@ const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
 
 const USERS_FILE = './users.json';
-const saltRounds = 10; // bcrypt complexity
-let users = {}; // In-memory user store
+const saltRounds = 10;
+let users = {};
 
 function loadUsers() {
     try {
@@ -18,23 +18,32 @@ function loadUsers() {
         }
     } catch (e) {
         console.error('[AUTH] Error loading users:', e);
-        users = {}; // Start fresh on error
+        users = {};
     }
 }
 
 function saveUsers() {
     try {
         fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-        // console.log(`[AUTH] Saved users to ${USERS_FILE}`); // Can be noisy
     } catch (e) {
         console.error('[AUTH] Error saving users:', e);
     }
 }
 
-function init(socket) {
+function findUserById(userId) {
+     for (const phone in users) {
+         if (users[phone].userId === userId) {
+             // Return a copy to prevent modification? Or trust internal usage.
+             return { ...users[phone], phoneNumber: phone }; // Include phone if needed
+         }
+     }
+     return null;
+}
+
+
+function init(socket, io) { // Receive io if needed later
     socket.on('register', async (data, callback) => {
         const { phoneNumber, password } = data;
-        // Basic validation
         if (!phoneNumber || !password || typeof phoneNumber !== 'string' || typeof password !== 'string' || password.length < 4) {
             return callback({ success: false, message: '需要有效的手机号和至少4位密码。' });
         }
@@ -45,11 +54,11 @@ function init(socket) {
         try {
             const passwordHash = await bcrypt.hash(password, saltRounds);
             const userId = uuidv4();
-            const username = `用户${phoneNumber.slice(-4)}`; // Simple default username
+            const username = `用户${phoneNumber.slice(-4)}`;
             users[phoneNumber] = { userId, passwordHash, username };
-            saveUsers(); // Save after successful registration
+            saveUsers();
             console.log(`[AUTH] User registered: ${username} (${phoneNumber}), ID: ${userId}`);
-            callback({ success: true, message: '注册成功！' }); // Don't auto-login, let user login explicitly
+            callback({ success: true, message: '注册成功！' });
         } catch (error) {
             console.error('[AUTH] Registration error:', error);
             callback({ success: false, message: '注册过程中发生服务器错误。' });
@@ -70,17 +79,13 @@ function init(socket) {
         try {
             const match = await bcrypt.compare(password, userData.passwordHash);
             if (match) {
-                // Login successful - Associate user data with the socket
                 socket.userId = userData.userId;
                 socket.username = userData.username;
                 console.log(`[AUTH] User logged in: ${socket.username} (ID: ${socket.userId}), Socket: ${socket.id}`);
+                // Inform roomManager about authentication
+                const roomManager = require('./roomManager');
+                roomManager.handleAuthentication(socket);
                 callback({ success: true, message: '登录成功！', userId: userData.userId, username: userData.username });
-                // After login, maybe send room list again or trigger lobby view on client
-                 // Let roomManager know the user is authenticated
-                 const roomManager = require('./roomManager'); // Avoid circular dependency issues if possible
-                 roomManager.handleAuthentication(socket);
-
-
             } else {
                 callback({ success: false, message: '密码错误。' });
             }
@@ -89,11 +94,60 @@ function init(socket) {
             callback({ success: false, message: '登录过程中发生服务器错误。' });
         }
     });
+
+    // --- Reauthentication Logic ---
+    socket.on('reauthenticate', (storedUserId, callback) => {
+        console.log(`[AUTH] Reauthentication attempt for userId: ${storedUserId} on socket: ${socket.id}`);
+        const userData = findUserById(storedUserId); // Use helper function
+
+        if (userData) {
+            socket.userId = userData.userId;
+            socket.username = userData.username;
+            console.log(`[AUTH] User reauthenticated: ${socket.username} (ID: ${socket.userId}), Socket: ${socket.id}`);
+
+            const roomManager = require('./roomManager');
+            const previousRoom = roomManager.findRoomByUserId(socket.userId);
+
+            if (previousRoom) {
+                 console.log(`[AUTH] User ${socket.username} was previously in room ${previousRoom.roomId}`);
+                 const rejoinResult = roomManager.handleReconnect(socket, previousRoom.roomId);
+                 if (rejoinResult.success) {
+                     callback({
+                         success: true,
+                         message: '重新认证并加入房间成功！',
+                         userId: userData.userId,
+                         username: userData.username,
+                         roomState: rejoinResult.roomState
+                     });
+                 } else {
+                     callback({
+                         success: true,
+                         message: '重新认证成功，但无法自动重加房间。',
+                         userId: userData.userId,
+                         username: userData.username,
+                         roomState: null
+                     });
+                     roomManager.handleAuthentication(socket); // Still trigger lobby update
+                 }
+            } else {
+                 callback({
+                     success: true,
+                     message: '重新认证成功！',
+                     userId: userData.userId,
+                     username: userData.username,
+                     roomState: null
+                 });
+                 roomManager.handleAuthentication(socket); // Trigger lobby update
+            }
+        } else {
+            console.log(`[AUTH] Reauthentication failed: userId ${storedUserId} not found.`);
+            callback({ success: false, message: '无效的用户凭证。' });
+        }
+    });
 }
 
 module.exports = {
     init,
     loadUsers,
-    saveUsers, // Export if needed elsewhere, e.g., for graceful shutdown
-    // getUserById: (userId) => Object.values(users).find(u => u.userId === userId) // Helper if needed
+    saveUsers,
 };
