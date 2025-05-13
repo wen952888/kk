@@ -1,19 +1,10 @@
 // public/client.js
-// (大部分代码与上一个“完整版”的 client.js 相同)
-// 关键修改点:
-// 1. renderRoomView 中对 DOM 元素引用的调整 (如果HTML结构变了)
-// 2. renderPlayerArea 中对头像和玩家信息的布局处理
-// 3. fanCards 和 renderPlayerCards 确保在新的布局下正确显示
-// 4. updateRoomControls 对新的按钮容器和准备按钮位置的处理
-
-// --- (顶部变量和工具函数等保持与上一个完整版一致) ---
 const socket = io({
     reconnectionAttempts: 5,
     reconnectionDelay: 3000
 });
 
-// ... (State Variables, DOM Element (ensure they match new HTML), Utility Functions - largely same) ...
-// (确保 playerAreas 仍然指向正确的父级 div)
+// --- State Variables ---
 let currentView = 'loading';
 let myUserId = null;
 let myUsername = null;
@@ -26,6 +17,7 @@ let currentSortMode = 'rank';
 let currentHint = null;
 let currentHintCycleIndex = 0;
 
+// --- DOM Elements ---
 const loadingView = document.getElementById('loadingView');
 const loginRegisterView = document.getElementById('loginRegisterView');
 const lobbyView = document.getElementById('lobbyView');
@@ -72,7 +64,8 @@ const AVATAR_PATHS = [
     '/images/avatar-slot-3.png',
 ];
 
-// --- (Utility Functions - showView, displayMessage, clearMessages, getSuitSymbol etc. - same as previous full version)
+
+// --- Utility Functions ---
 function showView(viewName) {
     console.log(`Switching view from ${currentView} to: ${viewName}`);
     currentView = viewName;
@@ -137,9 +130,7 @@ function compareBySuitThenRank(cardA, cardB) {
     return RANK_VALUES_CLIENT[cardA.rank] - RANK_VALUES_CLIENT[cardB.rank];
 }
 
-
 // --- Rendering Functions ---
-// (renderRoomList - same as previous)
 function renderRoomList(rooms) {
     console.log('CLIENT: renderRoomList called with rooms:', rooms);
     if (!roomListEl) {
@@ -171,32 +162,79 @@ function renderRoomList(rooms) {
     });
  }
 
+// --- Partial Update Functions (DEFINITIONS MUST BE HERE, BEFORE renderRoomView if called from there) ---
+function updateGameInfoBarDOM(state) {
+    const gameInfoBar = document.getElementById('gameInfoBar');
+    if (gameInfoBar) {
+        const roomNameIdEl = gameInfoBar.querySelector('.room-name-id');
+        if (roomNameIdEl) {
+            roomNameIdEl.innerHTML = `
+                <span class="room-name">${state.roomName || '房间'}</span>
+                <span class="room-id">ID: ${state.roomId || 'N/A'}</span>
+            `;
+        }
+    }
+}
 
-function renderRoomView(state) { // Main render function
-    if (!state || !roomView || !myUserId) { /* ... (error handling) ... */ return; }
-    console.log("Executing FULL renderRoomView based on new state:", state);
+function updateGameStatusDisplayDOM(state) {
+    const gameStatusDisplay = document.getElementById('gameStatusDisplay');
+    if (gameStatusDisplay) {
+        let messageText = '';
+        if (state.status === 'waiting') {
+            const numPlayers = state.players.length;
+            const maxPlayers = 4;
+            messageText = `等待 ${numPlayers}/${maxPlayers} 位玩家准备...`;
+        } else if (state.status === 'playing') {
+            const currentPlayer = state.players.find(p => p.userId === state.currentPlayerId);
+            messageText = currentPlayer ? (currentPlayer.userId === myUserId ? '轮到你出牌！' : `等待 ${currentPlayer.username} 出牌...`) : '游戏进行中...';
+        } else if (state.status === 'finished') {
+            messageText = '游戏已结束';
+        } else {
+            messageText = `状态: ${state.status}`;
+        }
+        if (gameStatusDisplay.textContent !== messageText && !gameStatusDisplay.classList.contains('error') && !gameStatusDisplay.classList.contains('success')) {
+            displayMessage(gameStatusDisplay, messageText);
+        }
+    }
+}
+
+function renderCenterPileDOM(state) {
+    if (!centerPileArea) return; // Add check for element
+    centerPileArea.innerHTML = '';
+    if (state.centerPile && state.centerPile.length > 0) {
+        state.centerPile.forEach(cardData => centerPileArea.appendChild(renderCard(cardData, false, true)));
+    } else {
+        const placeholder = document.createElement('span'); placeholder.textContent = '- 等待出牌 -'; placeholder.style.color = '#aaa';
+        centerPileArea.appendChild(placeholder);
+    }
+    if(lastHandTypeDisplay) lastHandTypeDisplay.textContent = state.lastHandInfo ? `类型: ${state.lastHandInfo.type}` : '新回合';
+}
+// --- End of Partial Update Functions ---
+
+
+function renderRoomView(state) {
+    if (!state || !roomView || !myUserId) {
+        console.error("RenderRoomView (full) called with invalid state or no myUserId", state, myUserId);
+        if (!myUserId && currentView === 'roomView') { handleLogout(); alert("用户身份丢失，请重新登录。"); }
+        return;
+    }
+    console.log("Executing FULL renderRoomView based on new state:", JSON.parse(JSON.stringify(state))); // Log a copy
 
     updateGameInfoBarDOM(state);
     updateGameStatusDisplayDOM(state);
 
     Object.values(playerAreas).forEach(clearPlayerAreaDOM);
     const myPlayer = state.players.find(p => p.userId === myUserId);
-    if (!myPlayer) { /* ... (error handling) ... */ return; }
+    if (!myPlayer) { console.error("My player data not found in game state!", state.players); handleGameLeave(); return; }
     isReadyForGame = myPlayer.isReady;
     const mySlot = myPlayer.slot;
 
     state.players.forEach(player => {
         const isMe = player.userId === myUserId;
-        // Calculate relative slot based on current player's perspective
-        // Assuming playerAreas[0] is self, [1] is left, [2] is top, [3] is right
-        let displaySlotIndex = (player.slot - mySlot + state.players.length) % state.players.length;
-        const targetArea = playerAreas[displaySlotIndex];
-
-        if (targetArea) {
-            renderPlayerArea(targetArea, player, isMe, state, player.slot); // Pass absoluteSlot for avatar
-        } else {
-            console.warn(`No target area for relative slot ${displaySlotIndex} (Player slot ${player.slot})`);
-        }
+        let relativeSlot = (player.slot - mySlot + state.players.length) % state.players.length;
+        const targetArea = playerAreas[relativeSlot];
+        if (targetArea) renderPlayerArea(targetArea, player, isMe, state, player.slot);
+        else console.warn(`No target area for relative slot ${relativeSlot} (Player slot ${player.slot})`);
     });
 
     renderCenterPileDOM(state);
@@ -206,11 +244,6 @@ function renderRoomView(state) { // Main render function
         clearHintsAndSelection(false);
     }
 }
-
-// (clearPlayerAreaDOM, renderPlayerArea, fanCards, renderPlayerCards, renderCard, updateRoomControls
-//  ARE THE SAME AS THE PREVIOUS FULL client.js VERSION.
-//  Ensure renderPlayerArea correctly handles the new HTML structure for playerHeader including avatar and ready button for self.)
-
 function clearPlayerAreaDOM(area) {
      if (!area) return;
      const avatarEl = area.querySelector('.player-avatar');
@@ -228,16 +261,13 @@ function clearPlayerAreaDOM(area) {
      if (infoEl) infoEl.innerHTML = '';
      if (cardsEl) cardsEl.innerHTML = '';
      if (handCountEl) handCountEl.remove();
-
-     // Special handling for self area buttons
      if (area.id === 'playerAreaBottom') {
         const actionsContainer = area.querySelector('.my-actions-container');
         if(actionsContainer) { actionsContainer.classList.add('hidden-view'); }
-        const readyBtn = area.querySelector('#readyButton'); // Ready button is now inside self's playerHeader
+        const readyBtn = area.querySelector('#readyButton');
         if (readyBtn) readyBtn.classList.add('hidden-view');
      }
 }
-
 function renderPlayerArea(container, playerData, isMe, state, absoluteSlot) {
     const avatarEl = container.querySelector('.player-avatar');
     const nameEl = container.querySelector('.playerName');
@@ -262,32 +292,24 @@ function renderPlayerArea(container, playerData, isMe, state, absoluteSlot) {
     if (roleEl) roleEl.textContent = playerData.role ? `[${playerData.role}]` : '[?]';
     if (infoEl) {
         let infoText = `总分: ${playerData.score || 0}`;
-        // For opponents, show ready status in playerInfo if waiting
-        if (state.status === 'waiting' && !isMe) {
-             infoText += playerData.isReady ? ' <span class="ready">[已准备]</span>' : ' <span class="not-ready">[未准备]</span>';
-        }
-        // For all players, show disconnected or finished status if applicable
         if (playerData.finished) infoText += ' <span class="finished">[已完成]</span>';
         else if (!playerData.connected && state.status !== 'waiting') infoText += ' <span class="disconnected">[已断线]</span>';
-
+        else if (state.status === 'waiting' && isMe) { /* Ready status for self is handled by the button */ }
+        else if (state.status === 'waiting' && !isMe) {
+             infoText += playerData.isReady ? ' <span class="ready">[已准备]</span>' : ' <span class="not-ready">[未准备]</span>';
+        }
         infoEl.innerHTML = infoText;
     }
-
-    // Ready button for self is handled by updateRoomControls
-    if (isMe) {
+    if (isMe) { // Only self area has the ready button in its header
         const readyButtonInstance = container.querySelector('#readyButton');
         if (readyButtonInstance && state.status === 'waiting') {
-            readyButtonInstance.classList.remove('hidden-view');
-            // updateRoomControls will set text and class
+             // updateRoomControls will handle visibility and text
         } else if (readyButtonInstance) {
             readyButtonInstance.classList.add('hidden-view');
         }
     }
-
-
     if (cardsEl) renderPlayerCards(cardsEl, playerData, isMe, state.status === 'playing' && state.currentPlayerId === myUserId);
 }
-
 function fanCards(cardContainer, cardElements, areaId) {
     const numCards = cardElements.length;
     if (numCards === 0) return;
@@ -383,9 +405,8 @@ function renderCard(cardData, isHidden, isCenterPileCard = false) {
     if (isCenterPileCard) {
         cardDiv.style.position = 'relative';
         cardDiv.style.margin = '3px';
-    } else if (myHandArea && myHandArea === cardDiv.parentNode) { // Check if parent is myHandArea (the .playerCards container)
-        // My cards are styled via CSS (#playerAreaBottom .playerCards .card) to be relative and use margin
     }
+    // No special handling for myHand cards here, CSS takes care of it.
     if (isHidden || !cardData) {
         cardDiv.classList.add('hidden');
     } else {
@@ -396,16 +417,16 @@ function renderCard(cardData, isHidden, isCenterPileCard = false) {
     }
     return cardDiv;
  }
-function updateRoomControls(state) { // This function now correctly targets buttons based on their new locations/IDs
+function updateRoomControls(state) {
     if (!state || !myUserId) return;
     const myPlayerInState = state.players.find(p => p.userId === myUserId);
     if (!myPlayerInState) return;
 
-    const readyButtonInstance = document.getElementById('readyButton'); // In self's playerHeader
+    const readyButtonInstance = document.getElementById('readyButton');
     if (readyButtonInstance) {
         if (state.status === 'waiting') {
             readyButtonInstance.classList.remove('hidden-view');
-            // readyButtonInstance.classList.add('view-inline-block'); // CSS should handle display
+            // readyButtonInstance.classList.add('view-inline-block'); // CSS on #playerAreaBottom .playerHeader handles display
             readyButtonInstance.textContent = myPlayerInState.isReady ? '取消' : '准备';
             readyButtonInstance.classList.toggle('ready', myPlayerInState.isReady);
             readyButtonInstance.disabled = false;
@@ -436,8 +457,7 @@ function updateRoomControls(state) { // This function now correctly targets butt
     }
 }
 
-
-// --- (Event Handlers: handleRegister through handleHint - same as previous full version) ---
+// --- (Event Handlers: handleRegister to DOMContentLoaded, should be IDENTICAL to the previous full client.js) ---
 function handleRegister() {
     const phone = regPhoneInput.value.trim(); const password = regPasswordInput.value;
     if (!phone || !password) { displayMessage(authMessage, '请输入手机号和密码。', true); return; }
@@ -532,14 +552,13 @@ function handleReadyClick() {
       const actualReadyButton = document.getElementById('readyButton');
       if (!actualReadyButton) {console.error("Ready button not found!"); return;}
       const desiredReadyState = !isReadyForGame;
-      actualReadyButton.disabled = true; // Disable optimistically
+      actualReadyButton.disabled = true;
       socket.emit('playerReady', desiredReadyState, (response) => {
-           actualReadyButton.disabled = false; // Re-enable after server ack
+           actualReadyButton.disabled = false;
            if (!response.success) {
                const gameStatusDisp = document.getElementById('gameStatusDisplay');
                displayMessage(gameStatusDisp, response.message || "无法改变准备状态。", true);
            }
-           // Server will send playerReadyUpdate which triggers render and updates button text/class
       });
  }
 function handleSortHand() {
@@ -721,21 +740,20 @@ socket.on('disconnect', (reason) => {
     }
     currentRoomId = null; currentGameState = null; previousGameState = null; isReadyForGame = false;
 });
-socket.on('roomListUpdate', (rooms) => { // This is for the lobby
+socket.on('roomListUpdate', (rooms) => {
     console.log('CLIENT: roomListUpdate event received for lobby with rooms:', rooms);
     if (currentView === 'lobbyView') {
         renderRoomList(rooms);
     }
 });
-socket.on('playerReadyUpdate', ({ userId, isReady }) => { // Handles ready status changes
+socket.on('playerReadyUpdate', ({ userId, isReady }) => {
     if (currentGameState && currentView === 'roomView') {
         const player = currentGameState.players.find(p => p.userId === userId);
         if (player) player.isReady = isReady;
         if (userId === myUserId) isReadyForGame = isReady;
-        // Just update relevant controls and player info, not a full re-render unless necessary
-        updateRoomControls(currentGameState);
+        updateRoomControls(currentGameState); // Update button based on new ready state
         const myPlayer = currentGameState.players.find(p => p.userId === myUserId);
-        if(myPlayer){
+        if(myPlayer){ // Re-render the specific player area that changed ready state
             const mySlot = myPlayer.slot;
             const targetPlayerToUpdate = currentGameState.players.find(p => p.userId === userId);
             if(targetPlayerToUpdate){
@@ -746,12 +764,12 @@ socket.on('playerReadyUpdate', ({ userId, isReady }) => { // Handles ready statu
         }
     }
 });
-socket.on('playerJoined', (newPlayerInfo) => { // Player joins the room
+socket.on('playerJoined', (newPlayerInfo) => {
     const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (currentView === 'roomView') {
         console.log('Player joined:', newPlayerInfo.username);
-        if (!currentGameState) { // If client is in room view but has no state (e.g. just joined)
-            socket.emit('requestGameState', (state) => { // Request full state
+        if (!currentGameState) {
+            socket.emit('requestGameState', (state) => {
                 if(state) {
                     currentGameState = state;
                     previousGameState = null;
@@ -761,7 +779,6 @@ socket.on('playerJoined', (newPlayerInfo) => { // Player joins the room
             });
             return;
         }
-        // If client has state, update it
         previousGameState = JSON.parse(JSON.stringify(currentGameState));
         const existingPlayer = currentGameState.players.find(p => p.userId === newPlayerInfo.userId);
         if (existingPlayer) { Object.assign(existingPlayer, newPlayerInfo, {connected: true}); }
@@ -771,7 +788,7 @@ socket.on('playerJoined', (newPlayerInfo) => { // Player joins the room
         displayMessage(gameStatusDisp, `${newPlayerInfo.username} 加入了房间。`, false, true);
     }
 });
-socket.on('playerLeft', ({ userId, username, reason }) => { // Player leaves or disconnects
+socket.on('playerLeft', ({ userId, username, reason }) => {
     const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (currentGameState && currentView === 'roomView') {
         console.log('Player left:', username, reason);
@@ -785,7 +802,7 @@ socket.on('playerLeft', ({ userId, username, reason }) => { // Player leaves or 
         displayMessage(gameStatusDisp, `${username} ${reason === 'disconnected' ? '断线了' : '离开了房间'}。`, true);
     }
 });
-socket.on('playerReconnected', (reconnectedPlayerInfo) => { // Player reconnected
+socket.on('playerReconnected', (reconnectedPlayerInfo) => {
     const gameStatusDisp = document.getElementById('gameStatusDisplay');
      if (currentView === 'roomView') {
         console.log('Player reconnected:', reconnectedPlayerInfo.username);
@@ -811,7 +828,7 @@ socket.on('playerReconnected', (reconnectedPlayerInfo) => { // Player reconnecte
         displayMessage(gameStatusDisp, `${reconnectedPlayerInfo.username} 重新连接。`, false, true);
     }
 });
-socket.on('gameStarted', (initialGameState) => { // Game starts
+socket.on('gameStarted', (initialGameState) => {
     const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (currentView === 'roomView' && currentRoomId === initialGameState.roomId) {
         console.log('Game started!', initialGameState);
@@ -822,36 +839,30 @@ socket.on('gameStarted', (initialGameState) => { // Game starts
         renderRoomView(initialGameState);
     }
 });
-
-socket.on('gameStateUpdate', (newState) => { // Core game state update
+socket.on('gameStateUpdate', (newState) => {
     if (currentView === 'roomView' && currentRoomId === newState.roomId) {
         console.log('CLIENT: gameStateUpdate received');
         previousGameState = currentGameState ? JSON.parse(JSON.stringify(currentGameState)) : null;
-        currentGameState = newState; // Update local state *before* rendering
-
-        // Clear selection if turn changed away from me or if pile was cleared (new round starts with current player)
-        if (previousGameState &&
-            ( (previousGameState.currentPlayerId === myUserId && currentGameState.currentPlayerId !== myUserId) ||
-              (!currentGameState.lastHandInfo && previousGameState.lastHandInfo && currentGameState.currentPlayerId === myUserId)
-            )
+        currentGameState = newState;
+        if (previousGameState && ( (previousGameState.currentPlayerId === myUserId && currentGameState.currentPlayerId !== myUserId) ||
+            (!currentGameState.lastHandInfo && previousGameState.lastHandInfo && currentGameState.currentPlayerId === myUserId) )
            ) {
             selectedCards = [];
             clearHintsAndSelection(true);
         }
-        renderRoomView(currentGameState); // Always do a full render for now to ensure consistency
-
+        renderRoomView(currentGameState);
     } else if (currentRoomId && currentRoomId !== newState.roomId) {
         console.warn("Received gameStateUpdate for a different room. Ignoring.");
     }
 });
-socket.on('invalidPlay', ({ message }) => { // Invalid action by player
+socket.on('invalidPlay', ({ message }) => {
     const gameStatusDisp = document.getElementById('gameStatusDisplay');
     displayMessage(gameStatusDisp, `操作无效: ${message}`, true);
-    if (currentGameState && currentGameState.currentPlayerId === myUserId) { // If still my turn
-        updateRoomControls(currentGameState); // Re-evaluate button states
+    if (currentGameState && currentGameState.currentPlayerId === myUserId) {
+        updateRoomControls(currentGameState);
     }
 });
-socket.on('gameOver', (results) => { // Game over
+socket.on('gameOver', (results) => {
     if (currentView === 'roomView' && results && currentRoomId === results.roomId) {
         console.log('Game Over event received:', results);
         if (currentGameState) currentGameState.status = 'finished';
@@ -861,7 +872,7 @@ socket.on('gameOver', (results) => { // Game over
         showGameOver(results);
     }
 });
-socket.on('gameStartFailed', ({ message }) => { // Failed to start game
+socket.on('gameStartFailed', ({ message }) => {
     const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (currentView === 'roomView') {
         displayMessage(gameStatusDisp, `游戏开始失败: ${message}`, true);
@@ -872,7 +883,7 @@ socket.on('gameStartFailed', ({ message }) => { // Failed to start game
         }
     }
 });
-socket.on('allPlayersResetReady', () => { // Server forces reset of ready states
+socket.on('allPlayersResetReady', () => {
     const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (currentGameState && currentView === 'roomView' && currentGameState.status === 'waiting') {
         currentGameState.players.forEach(p => p.isReady = false);
@@ -940,26 +951,17 @@ function setupEventListeners() {
     if(createRoomButton) createRoomButton.addEventListener('click', handleCreateRoom);
 
     document.body.addEventListener('click', function(event) {
-        const buttonElement = event.target.closest('button'); // Get the button even if icon inside is clicked
-        if (!buttonElement) return; // Not a click on a button or its child
-
+        const buttonElement = event.target.closest('button');
+        if (!buttonElement) return;
         const buttonId = buttonElement.id;
 
-        if (buttonId === 'readyButton') {
-            handleReadyClick();
-        } else if (buttonId === 'leaveRoomButton') {
-            handleGameLeave();
-        } else if (buttonId === 'sortHandButton') {
-            handleSortHand();
-        } else if (buttonId === 'playSelectedCardsButton') {
-            handlePlaySelectedCards();
-        } else if (buttonId === 'passTurnButton') {
-            handlePassTurn();
-        } else if (buttonId === 'hintButton') {
-            handleHint();
-        } else if (buttonId === 'backToLobbyButton') {
-            handleReturnToLobby();
-        }
+        if (buttonId === 'readyButton') handleReadyClick();
+        else if (buttonId === 'leaveRoomButton') handleGameLeave();
+        else if (buttonId === 'sortHandButton') handleSortHand();
+        else if (buttonId === 'playSelectedCardsButton') handlePlaySelectedCards();
+        else if (buttonId === 'passTurnButton') handlePassTurn();
+        else if (buttonId === 'hintButton') handleHint();
+        else if (buttonId === 'backToLobbyButton') handleReturnToLobby();
     });
 
     regPasswordInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleRegister(); });
