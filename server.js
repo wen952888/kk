@@ -30,19 +30,17 @@ io.on('connection', (socket) => {
     console.log(`[SERVER] Client connected: ${socket.id}`);
 
     // Initialize managers for this socket connection
-    authManager.init(socket);
+    authManager.init(socket, io); // Pass io to authManager if it needs to emit after auth
     roomManager.init(socket, io); // Pass io to roomManager for broadcasting
 
     // Handle disconnection
     socket.on('disconnect', (reason) => {
         console.log(`[SERVER] Client disconnected: ${socket.id}. Reason: ${reason}`);
         roomManager.handleDisconnect(socket); // Let roomManager handle cleanup
-        // User automatically "logs out" on disconnect for this simple model
     });
 
-    // Example: Send initial room list to newly connected (but not yet logged in) clients if needed
-    // Although typically you'd wait for login before sending sensitive info
-     socket.emit('roomListUpdate', roomManager.getPublicRoomList());
+    // Send initial room list to newly connected (but not yet logged in) clients
+    socket.emit('roomListUpdate', roomManager.getPublicRoomList());
 });
 
 // Start the server
@@ -56,8 +54,7 @@ server.listen(PORT, '0.0.0.0', () => {
 // Graceful shutdown (optional but good practice)
 process.on('SIGINT', () => {
     console.log('[SERVER] Shutting down...');
-    // Perform cleanup if necessary, e.g., save data
-    // authManager.saveUsers(); // saveUsers is called on register, maybe not needed here
+    authManager.saveUsers(); // Ensure users are saved on shutdown
     server.close(() => {
         console.log('[SERVER] Server closed.');
         process.exit(0);
