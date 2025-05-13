@@ -38,7 +38,7 @@ const createRoomButton = document.getElementById('createRoomButton');
 const roomList = document.getElementById('roomList');
 const lobbyMessage = document.getElementById('lobbyMessage');
 const roomNameDisplay = document.getElementById('roomNameDisplay');
-const gameModeDisplay = document.getElementById('gameModeDisplay');
+const gameModeDisplay = document.getElementById('gameModeDisplay'); // 虽然CSS隐藏了，但DOM元素还在
 const roomStatusDisplay = document.getElementById('roomStatusDisplay');
 const leaveRoomButton = document.getElementById('leaveRoomButton');
 const centerPileArea = document.getElementById('centerPileArea');
@@ -148,7 +148,7 @@ function renderRoomView(state) {
     }
     currentGameState = state;
     roomNameDisplay.textContent = state.roomName || '房间';
-    gameModeDisplay.textContent = state.gameMode === 'double_landlord' ? '(双地主模式)' : '(标准模式)';
+    // gameModeDisplay.textContent = state.gameMode === 'double_landlord' ? '(双地主模式)' : '(标准模式)'; // 已通过CSS隐藏
     roomStatusDisplay.textContent = `状态: ${state.status}`;
     Object.values(playerAreas).forEach(clearPlayerAreaDOM);
     const myPlayer = state.players.find(p => p.userId === myUserId);
@@ -166,7 +166,7 @@ function renderRoomView(state) {
     if (state.centerPile && state.centerPile.length > 0) {
         state.centerPile.forEach(cardData => centerPileArea.appendChild(renderCard(cardData, false, true)));
     } else {
-        const placeholder = document.createElement('span'); placeholder.textContent = '- 等待出牌 -'; placeholder.style.color = '#bbb';
+        const placeholder = document.createElement('span'); placeholder.textContent = '- 等待出牌 -'; placeholder.style.color = '#777';
         centerPileArea.appendChild(placeholder);
     }
     lastHandTypeDisplay.textContent = state.lastHandInfo ? `类型: ${state.lastHandInfo.type}` : '新回合';
@@ -215,25 +215,26 @@ function fanCards(cardContainer, cardElements, areaId) {
     if (numCards === 0) return;
 
     const cardWidth = 55; // From CSS .card width
-    const cardHeight = 77; // From CSS .card height
 
     if (areaId === 'playerAreaBottom') { // My hand - horizontal spread with overlap
-        const overlap = -30; // More overlap for a tighter fan
+        const overlap = -30; 
         const totalHandWidth = numCards * (cardWidth + overlap) - overlap;
         let startX = (cardContainer.offsetWidth - totalHandWidth) / 2;
 
         cardElements.forEach((card, i) => {
             card.style.left = `${startX + i * (cardWidth + overlap)}px`;
-            // card.style.bottom = '5px'; // Positioned from bottom by CSS
             card.style.zIndex = i;
         });
     } else { // Opponent hands - fanned rotation
         let maxAngle = 30;
+        if (areaId === 'playerAreaLeft' || areaId === 'playerAreaRight') {
+            maxAngle = 40; // Slightly wider fan for side players
+        }
         let angleStep = numCards > 1 ? maxAngle / (numCards - 1) : 0;
-        angleStep = Math.min(angleStep, 6); // Max 6 deg per card to prevent too wide fan
+        angleStep = Math.min(angleStep, areaId === 'playerAreaTop' ? 4 : 5);
 
         let initialRotation = -((numCards - 1) * angleStep) / 2;
-        let yOffsetPerCard = 1.5; // How much cards stack vertically/horizontally
+        let yOffsetPerCard = 1.8; // Increased for more visible stacking
 
         cardElements.forEach((card, i) => {
             const rotation = initialRotation + i * angleStep;
@@ -245,15 +246,10 @@ function fanCards(cardContainer, cardElements, areaId) {
                 card.style.transform = `translateY(${ty}) rotate(${rotation}deg)`;
                 card.style.zIndex = numCards - i;
             } else if (areaId === 'playerAreaLeft') {
-                // top: 50%; left: 10px; transform-origin: center left; from CSS
                 tx = `${i * yOffsetPerCard}px`;
-                // For left player, cards should be stacked with a slight vertical offset too if fanning vertically
-                // But current CSS aims for a horizontal fan.
-                // The transform translateY(-50%) is applied by CSS.
                 card.style.transform = `translateX(${tx}) rotate(${rotation}deg) translateY(-50%)`;
                 card.style.zIndex = numCards - i;
             } else if (areaId === 'playerAreaRight') {
-                // top: 50%; right: 10px; transform-origin: center right; from CSS
                 tx = `${-i * yOffsetPerCard}px`;
                 card.style.transform = `translateX(${tx}) rotate(${rotation}deg) translateY(-50%)`;
                 card.style.zIndex = i;
@@ -268,10 +264,9 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
     const cardElements = [];
 
     if (isMe) {
-        // MY HAND
         let sortedHand = playerData.hand ? [...playerData.hand] : [];
-        if (sortedHand.length === 0 && !playerData.finished) { // Check if hand is empty array
-             container.innerHTML = '<span style="color:#ccc; font-style:italic;">- 无手牌 -</span>';
+        if (sortedHand.length === 0 && !playerData.finished) {
+             container.innerHTML = '<span style="color:#555; font-style:italic;">- 无手牌 -</span>';
         } else if (playerData.finished) {
             container.innerHTML = '<span style="color:gray; font-style:italic;">已出完</span>';
         } else {
@@ -295,16 +290,14 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
             });
         }
     } else {
-        // OPPONENT'S HAND
         if (playerData.finished) {
             container.innerHTML = '<span style="color:gray; font-style:italic;">已出完</span>';
         } else if (playerData.handCount > 0) {
             for (let i = 0; i < playerData.handCount; i++) {
-                const cardElement = renderCard(null, true); // Render card back
+                const cardElement = renderCard(null, true);
                 container.appendChild(cardElement);
                 cardElements.push(cardElement);
             }
-            // Add/Update hand count display
             let handCountEl = container.closest('.playerArea')?.querySelector('.hand-count-display');
             if (!handCountEl) {
                 handCountEl = document.createElement('div');
@@ -313,16 +306,15 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
             }
             handCountEl.textContent = `${playerData.handCount} 张`;
 
-        } else { // Opponent has 0 cards but not marked finished (e.g. game start)
-            container.innerHTML = '<span style="color:#ccc; font-style:italic;">- 无手牌 -</span>';
+        } else {
+            container.innerHTML = '<span style="color:#555; font-style:italic;">- 无手牌 -</span>';
             let handCountEl = container.closest('.playerArea')?.querySelector('.hand-count-display');
             if (handCountEl) handCountEl.remove();
         }
     }
 
     if (cardElements.length > 0) {
-        // Ensure fanning happens after cards are in DOM and container has dimensions
-        requestAnimationFrame(() => { // Use rAF for smoother rendering and dimension access
+        requestAnimationFrame(() => {
              fanCards(container, cardElements, container.closest('.playerArea')?.id);
         });
     }
@@ -331,7 +323,7 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
 function renderCard(cardData, isHidden, isCenterPileCard = false) {
     const cardDiv = document.createElement('div'); cardDiv.classList.add('card');
     if (isCenterPileCard) {
-        cardDiv.style.position = 'relative'; // Override absolute for center pile
+        cardDiv.style.position = 'relative';
         cardDiv.style.margin = '3px';
     }
 
@@ -356,7 +348,7 @@ function updateRoomControls(state) {
         readyButton.classList.toggle('ready', myPlayerInState.isReady);
         readyButton.disabled = false;
         const numPlayers = state.players.length;
-        const maxPlayers = state.players.length > 0 ? (state.players[0].maxPlayers || 4) : 4; // Ensure maxPlayers exists
+        const maxPlayers = 4; // Assuming maxPlayers is always 4 for this game
         displayMessage(gameMessage, `等待 ${numPlayers}/${maxPlayers} 位玩家准备...`, false);
 
         if(myActionsArea) { myActionsArea.classList.add('hidden-view'); myActionsArea.classList.remove('view-flex'); }
@@ -364,7 +356,6 @@ function updateRoomControls(state) {
         readyButton.classList.add('hidden-view'); readyButton.classList.remove('view-inline-block');
         const currentPlayer = state.players.find(p => p.userId === state.currentPlayerId);
         const turnMessage = currentPlayer ? (currentPlayer.userId === myUserId ? '轮到你出牌！' : `等待 ${currentPlayer.username} 出牌...`) : '游戏进行中...';
-        // Only update gameMessage if it's a turn message or a new important message
         if (gameMessage.textContent !== turnMessage && !gameMessage.classList.contains('error') && !gameMessage.classList.contains('success')) {
             displayMessage(gameMessage, turnMessage, false);
         }
@@ -374,7 +365,14 @@ function updateRoomControls(state) {
             if (state.currentPlayerId === myUserId && !myPlayerInState.finished) {
                 myActionsArea.classList.remove('hidden-view'); myActionsArea.classList.add('view-flex');
                 if(playSelectedCardsButton) playSelectedCardsButton.disabled = selectedCards.length === 0;
-                if(passTurnButton) passTurnButton.disabled = !state.lastHandInfo && !state.isFirstTurn; // Updated logic
+                if(passTurnButton) { // Logic for disabling pass button
+                    let disablePass = (!state.lastHandInfo && !state.isFirstTurn); // Cannot pass if leading new round (not first turn)
+                    if (state.isFirstTurn && !state.lastHandInfo) { // If it's the first turn of the game and pile is empty
+                         const iAmD4Holder = myPlayerInState.hand && myPlayerInState.hand.some(c => c.rank === '4' && c.suit === 'D');
+                         if (iAmD4Holder) disablePass = true; // D4 holder must play D4
+                    }
+                    passTurnButton.disabled = disablePass;
+                }
                 if(hintButton) hintButton.disabled = false;
                 if(sortHandButton) sortHandButton.disabled = false;
             } else {
@@ -387,7 +385,6 @@ function updateRoomControls(state) {
     }
 }
 
-// --- Event Handlers (rest of the functions remain the same) ---
 function handleRegister() {
     const phone = regPhoneInput.value.trim(); const password = regPasswordInput.value;
     if (!phone || !password) { displayMessage(authMessage, '请输入手机号和密码。', true); return; }
@@ -519,27 +516,26 @@ function toggleCardSelection(cardData, cardElement) {
         selectedCards.push(cardData);
         cardElement.classList.add('selected');
     }
-    if (playSelectedCardsButton) playSelectedCardsButton.disabled = selectedCards.length === 0;
-    console.log('Selected cards:', selectedCards.map(c => c.rank + c.suit));
+    if (playSelectedCardsButton && currentGameState && currentGameState.currentPlayerId === myUserId) { // Check if it's my turn
+         playSelectedCardsButton.disabled = selectedCards.length === 0;
+    }
 }
 function handlePlaySelectedCards() {
     if (selectedCards.length === 0) { displayMessage(gameMessage, '请先选择要出的牌。', true); return; }
     if (!currentRoomId || !currentGameState || currentGameState.status !== 'playing' || currentGameState.currentPlayerId !== myUserId) {
         displayMessage(gameMessage, '现在不是你的回合或状态无效。', true); return;
     }
-    displayMessage(gameMessage, '正在出牌...', false);
+    // displayMessage(gameMessage, '正在出牌...', false); // Let server response handle messages primarily
     setGameActionButtonsDisabled(true);
 
     socket.emit('playCard', selectedCards, (response) => {
-        // Re-enable buttons after server response, regardless of success/failure
-        // But only if it's still my turn (e.g. play was invalid)
         if (currentGameState && currentGameState.currentPlayerId === myUserId) {
             setGameActionButtonsDisabled(false);
         }
         if (!response.success) {
             displayMessage(gameMessage, response.message || '出牌失败。', true);
         } else {
-            // displayMessage(gameMessage, ''); // Clear message on successful play, gameStateUpdate will show next turn
+            // displayMessage(gameMessage, '');
             selectedCards = [];
             clearHintsAndSelection(true);
         }
@@ -549,18 +545,13 @@ function handlePassTurn() {
     if (!currentRoomId || !currentGameState || currentGameState.status !== 'playing' || currentGameState.currentPlayerId !== myUserId) {
         displayMessage(gameMessage, '现在不是你的回合或状态无效。', true); return;
     }
-    if (!currentGameState.lastHandInfo && !currentGameState.isFirstTurn) { // Allow pass on first turn if not D4 holder
-        // More precise: server handles D4 pass logic. Client prevents pass if leading a new round.
-        const myPlayer = currentGameState.players.find(p => p.userId === myUserId);
-        const isD4HolderOnFirstTurn = currentGameState.isFirstTurn && myPlayer && myPlayer.hand && myPlayer.hand.some(c => c.rank === '4' && c.suit === 'D');
-        if (!currentGameState.lastHandInfo && !isD4HolderOnFirstTurn) { // If I am leading a round (and not D4 on 1st turn)
-             displayMessage(gameMessage, '你必须出牌。', true);
-             return;
-        }
+    // Client-side check if pass is allowed (from updateRoomControls logic)
+    if (passTurnButton.disabled) { // If button is already disabled by our logic, don't proceed
+        displayMessage(gameMessage, '你必须出牌。', true);
+        return;
     }
 
-
-    displayMessage(gameMessage, '正在 Pass...', false);
+    // displayMessage(gameMessage, '正在 Pass...', false);
     setGameActionButtonsDisabled(true);
     selectedCards = [];
 
@@ -582,7 +573,7 @@ function handleHint() {
     }
     clearHintsAndSelection(false);
     setGameActionButtonsDisabled(true);
-    displayMessage(gameMessage, '正在获取提示...', false);
+    // displayMessage(gameMessage, '正在获取提示...', false);
 
     socket.emit('requestHint', currentHintCycleIndex, (response) => {
         if (currentGameState && currentGameState.currentPlayerId === myUserId) {
@@ -601,10 +592,11 @@ function handleHint() {
     });
 }
 function setGameActionButtonsDisabled(disabled) {
+    // This function will be called by updateRoomControls primarily
+    // It's kept here in case of direct calls, but updateRoomControls is the main source of truth
     if(playSelectedCardsButton) playSelectedCardsButton.disabled = disabled || selectedCards.length === 0;
     if(passTurnButton) {
         let canPass = currentGameState && (!!currentGameState.lastHandInfo || currentGameState.isFirstTurn);
-        // If it's the first turn, and I am the D4 holder, I cannot pass if the pile is empty.
         if (currentGameState && currentGameState.isFirstTurn && !currentGameState.lastHandInfo) {
             const myPlayer = currentGameState.players.find(p => p.userId === myUserId);
             if (myPlayer && myPlayer.hand && myPlayer.hand.some(c => c.rank === '4' && c.suit === 'D')) {
@@ -758,7 +750,7 @@ socket.on('gameStateUpdate', (newState) => {
 socket.on('invalidPlay', ({ message }) => {
     displayMessage(gameMessage, `操作无效: ${message}`, true);
     if (currentGameState && currentGameState.currentPlayerId === myUserId) {
-        setGameActionButtonsDisabled(false);
+        setGameActionButtonsDisabled(false); // Re-enable buttons on invalid play
     }
 });
 socket.on('gameOver', (results) => {
