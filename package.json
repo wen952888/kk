@@ -1,18 +1,11 @@
-
----
-
-**3. `package.json`** (Project manifest)
-
-```json
 {
-  "name": "thirteen-water-game",
-  "version": "0.1.0",
-  "description": "A web-based Thirteen Water (十三水) game using Node.js and Socket.IO",
-  "main": "server.js",
+  "name": "big-two-game",
+  "version": "1.0.0",
+  "description": "A web-based Big Two card game",
+  "main": "app.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.js"
+    "start": "node app.js",
+    "dev": "nodemon app.js"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -23,18 +16,5 @@
   },
   "engines": {
     "node": ">=16.0.0"
-  },
-  "author": "Your Name",
-  "license": "MIT",
-  "keywords": [
-    "thirteen",
-    "water",
-    "十三水",
-    "poker",
-    "card",
-    "game",
-    "socket.io",
-    "node",
-    "express"
-  ]
+  }
 }
