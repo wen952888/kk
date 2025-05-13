@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KK 在线纸牌</title>
-    <link rel="stylesheet" href="style.css?v=1.0.5"> <!-- 版本号递增 -->
+    <link rel="stylesheet" href="style.css?v=1.0.6"> <!-- 版本号递增 -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#4a4a4a"/> <!-- 主题色改为新的背景色 -->
+    <meta name="theme-color" content="#4a4a4a"/>
     <link rel="apple-touch-icon" href="/images/icon-192x192.png">
+    <!-- 可以考虑引入一个图标库，例如 Font Awesome，用于闹钟等图标 -->
+    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"> -->
 </head>
 <body>
 
@@ -50,20 +52,33 @@
         <div id="gameArea">
             <div id="gameInfoBar">
                 <div class="room-name-id">
-                    <!-- JS会填充这里 -->
+                    <span class="room-name">房间名称</span>
+                    <span class="room-id">ID: ------</span>
                 </div>
                 <button id="readyButton" class="hidden-view view-inline-block">准备</button>
                 <button id="leaveRoomButton">离开</button>
             </div>
 
             <div id="playerAreaTop" class="playerArea">
-                <div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div>
-                <div class="playerInfo"></div>
+                <div class="playerHeader">
+                    <div class="player-avatar">
+                        <!-- <img src="/images/alarm-icon.svg" class="alarm-icon hidden-view" alt="闹钟"> -->
+                    </div>
+                    <div class="player-details">
+                        <span class="playerName">玩家</span><span class="playerRole">[?]</span>
+                    </div>
+                </div>
+                <div class="playerInfo">总分: 0</div>
                 <div class="playerCards opponentHand"></div>
             </div>
             <div id="playerAreaLeft" class="playerArea">
-                <div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div>
-                <div class="playerInfo"></div>
+                 <div class="playerHeader">
+                    <div class="player-avatar"></div>
+                    <div class="player-details">
+                        <span class="playerName">玩家</span><span class="playerRole">[?]</span>
+                    </div>
+                </div>
+                <div class="playerInfo">总分: 0</div>
                 <div class="playerCards opponentHand"></div>
             </div>
             <div id="centerArea">
@@ -72,16 +87,25 @@
                 <span id="lastHandTypeDisplay"></span>
             </div>
             <div id="playerAreaRight" class="playerArea">
-                <div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div>
-                <div class="playerInfo"></div>
+                 <div class="playerHeader">
+                    <div class="player-avatar"></div>
+                    <div class="player-details">
+                        <span class="playerName">玩家</span><span class="playerRole">[?]</span>
+                    </div>
+                </div>
+                <div class="playerInfo">总分: 0</div>
                 <div class="playerCards opponentHand"></div>
             </div>
             <div id="playerAreaBottom" class="playerArea selfArea">
-                <div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div>
-                <div class="playerInfo"></div>
+                <div class="playerHeader">
+                     <div class="player-avatar"></div>
+                     <div class="player-details">
+                        <span class="playerName">你</span><span class="playerRole">[?]</span>
+                    </div>
+                </div>
+                <div class="playerInfo">总分: 0</div>
                 <div id="myHand" class="playerCards myHand"></div>
-                <!-- 新的按钮容器 -->
-                <div class="my-actions-container hidden-view"> <!-- 初始隐藏 -->
+                <div class="my-actions-container hidden-view">
                     <div class="actions-group left-actions">
                         <button id="sortHandButton" title="整理手牌">整理</button>
                         <button id="hintButton" title="提示">提示</button>
@@ -106,6 +130,6 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="client.js?v=1.0.5"></script>
+    <script src="client.js?v=1.0.6"></script>
 </body>
 </html>
