@@ -2,66 +2,101 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <!-- 修改 viewport -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KK 在线纸牌</title>
-    <!-- 添加 ?v=1.0.0 用于简单缓存清除，每次修改 CSS/JS 时递增版本号 -->
-    <link rel="stylesheet" href="style.css?v=1.0.1">
+    <link rel="stylesheet" href="style.css?v=1.0.4"> <!-- 版本号递增 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#333333"/> <!-- 主题色改为深色 -->
+    <link rel="apple-touch-icon" href="/images/icon-192x192.png">
 </head>
 <body>
 
-    <div id="loadingView"><p>连接中...</p></div>
+    <div id="loadingView" class="view view-block"><p>连接中...</p></div>
 
-    <!-- 为视图添加 hidden-view 类，移除内联 style -->
     <div id="loginRegisterView" class="view hidden-view">
         <h2>登录 / 注册</h2>
         <div id="authFormContainer">
-            <div class="formSection"><h3>注册</h3><input type="tel" id="regPhone" placeholder="手机号"><input type="password" id="regPassword" placeholder="密码 (至少4位)"><button id="registerButton">注册</button></div>
-            <div class="formSection"><h3>登录</h3><input type="tel" id="loginPhone" placeholder="手机号"><input type="password" id="loginPassword" placeholder="密码"><button id="loginButton">登录</button></div>
+            <div class="formSection">
+                <h3>注册</h3>
+                <input type="tel" id="regPhone" placeholder="手机号 (仅用于登录)" autocomplete="username">
+                <input type="password" id="regPassword" placeholder="密码 (至少4位)" autocomplete="new-password">
+                <button id="registerButton">注册</button>
+            </div>
+            <div class="formSection">
+                <h3>登录</h3>
+                <input type="tel" id="loginPhone" placeholder="手机号" autocomplete="username">
+                <input type="password" id="loginPassword" placeholder="密码" autocomplete="current-password">
+                <button id="loginButton">登录</button>
+            </div>
         </div>
         <p id="authMessage" class="message"></p>
     </div>
 
     <div id="lobbyView" class="view hidden-view">
-        <h2>游戏大厅</h2><p>欢迎, <span id="lobbyUsername"></span>! <button id="logoutButton" class="inline-button">登出</button></p>
-        <div id="createRoomSection"><h3>创建房间</h3><input type="text" id="createRoomName" placeholder="房间名称"><input type="password" id="createRoomPassword" placeholder="房间密码 (可选)"><button id="createRoomButton">创建</button></div>
-        <h3>加入房间</h3><div id="roomList"><p>正在加载房间列表...</p></div>
+        <h2>游戏大厅</h2>
+        <p>欢迎, <span id="lobbyUsername">玩家</span>! <button id="logoutButton" class="inline-button">登出</button></p>
+        <div id="createRoomSection">
+            <h3>创建房间</h3>
+            <input type="text" id="createRoomName" placeholder="房间名称 (1-30字符)">
+            <input type="password" id="createRoomPassword" placeholder="房间密码 (可选, 最多20字符)">
+            <button id="createRoomButton">创建房间</button>
+        </div>
+        <h3>加入房间</h3>
+        <div id="roomList"><p>正在加载房间列表...</p></div>
         <p id="lobbyMessage" class="message"></p>
     </div>
 
-    <div id="roomView" class="view hidden-view"> <!-- 应用 flex 布局 -->
-        <div id="roomHeader">
-             <h2 id="roomNameDisplay">房间名称</h2>
-             <span id="gameModeDisplay"></span>
-             <button id="leaveRoomButton">离开</button>
-        </div>
-        <p id="roomStatusDisplay">等待玩家...</p>
-
+    <div id="roomView" class="view hidden-view view-flex"> <!-- 确保是flex布局 -->
+        <!-- 游戏区域现在是主要内容，信息条和状态条绝对定位于此内部 -->
         <div id="gameArea">
-            <div id="playerAreaTop" class="playerArea"><div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div><div class="playerInfo"></div><div class="playerCards opponentHand"></div></div>
-            <div id="playerAreaLeft" class="playerArea"><div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div><div class="playerInfo"></div><div class="playerCards opponentHand"></div></div>
-            <div id="centerArea"><p>上一手牌:</p><div id="centerPileArea"></div><span id="lastHandTypeDisplay"></span></div>
-            <div id="playerAreaRight" class="playerArea"><div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div><div class="playerInfo"></div><div class="playerCards opponentHand"></div></div>
+            <!-- 整合的信息条 -->
+            <div id="gameInfoBar">
+                <div class="room-name-id">
+                    <!-- JS会填充这里 -->
+                </div>
+                <!-- 准备按钮也可以考虑放在这里，如果等待阶段需要 -->
+                <button id="readyButton" class="hidden-view view-inline-block">准备</button>
+                <button id="leaveRoomButton">离开</button>
+            </div>
+
+            <!-- 玩家区域布局保持不变 -->
+            <div id="playerAreaTop" class="playerArea">
+                <div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div>
+                <div class="playerInfo"></div>
+                <div class="playerCards opponentHand"></div>
+            </div>
+            <div id="playerAreaLeft" class="playerArea">
+                <div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div>
+                <div class="playerInfo"></div>
+                <div class="playerCards opponentHand"></div>
+            </div>
+            <div id="centerArea">
+                <p>上一手牌:</p>
+                <div id="centerPileArea"></div>
+                <span id="lastHandTypeDisplay"></span>
+            </div>
+            <div id="playerAreaRight" class="playerArea">
+                <div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div>
+                <div class="playerInfo"></div>
+                <div class="playerCards opponentHand"></div>
+            </div>
             <div id="playerAreaBottom" class="playerArea selfArea">
                 <div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div>
                 <div class="playerInfo"></div>
                 <div id="myHand" class="playerCards myHand"></div>
-                <div id="myActions" class="my-actions hidden-view"> <!-- 初始隐藏 -->
+                <div id="myActions" class="my-actions hidden-view">
                     <button id="playSelectedCardsButton" disabled>出 牌</button>
-                    <button id="passTurnButton">不要 (Pass)</button>
+                    <button id="passTurnButton" disabled>不要</button>
                     <button id="hintButton">提示</button>
                     <button id="sortHandButton">整理</button>
                 </div>
             </div>
+
+            <!-- 整合的游戏状态显示 -->
+            <div id="gameStatusDisplay">等待玩家...</div>
         </div>
 
-        <div id="roomControls">
-             <!-- 移除内联 style，JS 会控制显示 -->
-             <button id="readyButton" class="hidden-view">准备</button>
-             <p id="gameMessage" class="message"></p>
-        </div>
-
-         <div id="gameOverOverlay" class="overlay hidden-view"> <!-- 初始隐藏 -->
+         <div id="gameOverOverlay" class="overlay hidden-view view-flex">
              <div class="overlay-content">
                  <h3 id="gameOverTitle">游戏结束!</h3>
                  <p id="gameOverReason"></p>
@@ -72,7 +107,6 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <!-- 添加 ?v=1.0.0 用于简单缓存清除 -->
-    <script src="client.js?v=1.0.1"></script>
+    <script src="client.js?v=1.0.4"></script> <!-- 版本号递增 -->
 </body>
 </html>
