@@ -1,154 +1,185 @@
 // app.js
-
-// 首先加载 .env 文件中的环境变量
-// 这样 process.env 就会被 .env 文件中的值填充（如果存在）
-require('dotenv').config();
+require('dotenv').config(); // Load .env file first
 
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-// const path = require('path'); // 如果您确实需要 path 模块，请取消注释
-const { Game } = require('./server/game'); // 确保路径正确
+const { Game } = require('./server/game');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+    pingInterval: 10000, // Send a ping every 10 seconds
+    pingTimeout: 5000,   // Wait 5 seconds for a pong, then disconnect
+    // cors: { origin: "*" } // 如果客户端和服务器不同源，可能需要配置 CORS
+});
 
-// 确定监听端口的逻辑：
-// 1. 优先使用 serv00 (或类似PaaS平台) 通过环境变量注入的 PORT。
-// 2. 如果平台没有注入 PORT，则尝试使用 .env 文件中定义的 PORT (通过 dotenv 加载)。
-// 3. 如果以上两者都没有，则使用一个备用端口 (例如 3001，避免与常见的 3000 冲突，但仍需注意权限)。
-//    对于在 serv00 SSH 中直接运行，如果 .env 不存在或未配置 PORT，
-//    并且平台 PORT 环境变量在此 SSH 会话中不可用，则备用端口可能仍会导致 EPERM。
-//    最佳实践是在 .env 中为本地/SSH 测试明确指定一个高位端口。
-constFALLBACK_PORT = 3001; // 一个备用端口
-const ENV_PORT = process.env.PORT; // 从环境或 .env 文件获取
+const PORT = process.env.PORT || 3001; // Fallback port
 
-let portToUse;
-if (ENV_PORT) {
-    portToUse = parseInt(ENV_PORT, 10);
-    if (isNaN(portToUse)) {
-        console.warn(`Warning: Environment PORT "${ENV_PORT}" is not a valid number. Falling back to ${FALLBACK_PORT}.`);
-        portToUse = FALLBACK_PORT;
-    }
-} else {
-    console.log(`Info: process.env.PORT not set. Falling back to default port ${FALLBACK_PORT}. Ensure .env is configured for local/SSH or platform provides PORT.`);
-    portToUse = FALLBACK_PORT;
-}
-
-const PORT = portToUse;
-
-
-// --- 日志记录环境变量和端口 ---
 console.log("--- Startup Configuration ---");
-console.log("Initial process.env.PORT (from env or .env):", process.env.PORT); // dotenv 会修改 process.env
-console.log("NODE_ENV (from env or .env):", process.env.NODE_ENV);
+console.log("Initial process.env.PORT:", process.env.PORT);
+console.log("NODE_ENV:", process.env.NODE_ENV);
 console.log(`Effective port chosen for listening: ${PORT}`);
 console.log("-----------------------------");
-// --- 结束日志记录 ---
 
+app.use(express.static('public'));
 
-app.use(express.static('public')); // 确保 'public' 目录存在且包含静态文件
-
-let game = new Game([]); // 初始化游戏实例
+let game = new Game(); // Initialize a single game instance
 
 io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
+    console.log(`Player connected: ${socket.id}`);
 
-    const added = game.addPlayer(socket.id);
-    if (!added) {
-        socket.emit('game_error', { message: "Game is full or error joining." });
-        socket.disconnect();
+    const joinResult = game.addPlayer(socket.id);
+
+    if (!joinResult.success) {
+        socket.emit('game_error', { message: joinResult.message });
+        // Consider not disconnecting immediately, let client decide or show message
+        // socket.disconnect(true);
         return;
     }
+    // Announce new player or reconnected player
+    io.emit('player_list_update', game.getPlayerListInfo()); // Send updated player list to all
+    broadcastGameState(socket.id); // Send full state to new player, partial to others if needed
 
-    broadcastGameState(); // 广播给所有玩家，包括新加入的
+    socket.emit('connection_ack', { playerId: socket.id, message: "Successfully connected to game server." });
+
 
     socket.on('startGame', () => {
         if (!game.isGameStarted) {
-            // 简化：允许任何已连接的玩家尝试启动（在真实游戏中可能需要更严格的控制）
-            // if (game.players[0] && game.players[0].id === socket.id) { // 原来的逻辑：只允许第一个玩家启动
-            if (game.players.length >= 2 && game.players.length <= 4) { //  锄大地通常是4人，但为了测试方便，允许2-4人
-                 const started = game.startGame();
-                if (started) {
-                    broadcastGameState();
-                } else {
-                    socket.emit('game_error', { message: "Failed to start game. (Not enough players or already started)" });
-                }
+            // Simplification: let any connected player try to start
+            // More robust: check if socket.id is a current player, and if enough players
+            const player = game.players.find(p => p.id === socket.id && p.connected);
+            if (!player) {
+                socket.emit('game_error', {message: "You are not part of this game to start it."});
+                return;
+            }
+
+            const startResult = game.startGame();
+            if (startResult.success) {
+                console.log("Game started by", socket.id);
+                io.emit('game_started', game.getGameStartInfo()); // Announce game start
+                broadcastFullGameStateToAll();
             } else {
-                 socket.emit('game_error', { message: "Need 2-4 connected players to start." });
+                socket.emit('game_error', { message: startResult.message });
             }
         } else {
-             socket.emit('game_error', { message: "Game has already started." });
+            socket.emit('game_error', { message: "Game has already started." });
         }
     });
 
     socket.on('playCards', (cardIds) => {
         if (!game.isGameStarted) {
-            socket.emit('game_error', { message: "Game has not started yet."});
+            socket.emit('game_error', { message: "Game has not started yet." });
             return;
         }
         const result = game.playTurn(socket.id, cardIds);
         if (result.success) {
-            broadcastGameState();
+            broadcastFullGameStateToAll();
+            if (result.roundOver) {
+                io.emit('round_over', { winner: result.winner, message: `Player ${result.winner} won the round!`});
+                // Here you could reset for a new round or end game. For now, it just announces.
+                // game.resetForNewRound(); // Example
+                // broadcastFullGameStateToAll();
+            }
         } else {
             socket.emit('game_error', { message: result.message });
         }
     });
 
     socket.on('passTurn', () => {
-         if (!game.isGameStarted) {
-            socket.emit('game_error', { message: "Game has not started yet."});
+        if (!game.isGameStarted) {
+            socket.emit('game_error', { message: "Game has not started yet." });
             return;
         }
         const result = game.passTurn(socket.id);
         if (result.success) {
-            broadcastGameState();
+            broadcastFullGameStateToAll();
         } else {
             socket.emit('game_error', { message: result.message });
         }
     });
 
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
-        game.removePlayer(socket.id);
-        broadcastGameState(); // 更新其他玩家关于断开连接的信息
+    socket.on('requestNewGame', () => { // Client wants to start a new game after one finished
+        if (game.isRoundOver || !game.isGameStarted) { // Allow new game if round is over or not started
+            console.log(`Player ${socket.id} requested a new game.`);
+            game = new Game(); // Reset to a fresh game instance
+            // Re-add all currently connected sockets as players to the new game
+            const connectedSocketIds = Array.from(io.sockets.sockets.keys());
+            connectedSocketIds.forEach(id => {
+                if (io.sockets.sockets.get(id)) { // Check if socket still exists
+                     game.addPlayer(id); // Add them to the new game
+                }
+            });
+            io.emit('game_reset_for_new', { message: "A new game is being set up." });
+            broadcastFullGameStateToAll();
+        } else {
+            socket.emit('game_error', {message: "Cannot start a new game while current round is active."});
+        }
+    });
 
-        if (game.players.every(p => !p.connected) && game.players.length > 0) { // 检查是否所有“曾经加入”的玩家都断开了
-            console.log("All players disconnected, resetting game instance.");
-            game = new Game([]); // 为新玩家重置游戏实例
+
+    socket.on('disconnect', (reason) => {
+        console.log(`Player disconnected: ${socket.id}. Reason: ${reason}`);
+        const playerWhoLeft = game.getPlayerById(socket.id);
+        game.removePlayer(socket.id);
+
+        io.emit('player_list_update', game.getPlayerListInfo()); // Update player list for all
+
+        if (playerWhoLeft && game.isGameStarted) {
+            // If game was started and a player leaves, broadcast updated state
+            broadcastFullGameStateToAll();
+            // Check if game can continue
+            if (game.players.filter(p => p.connected && p.hand.length > 0).length < 2 && game.players.length > 0) { // Assuming min 2 players
+                game.endGameDueToDisconnection();
+                io.emit('game_ended_disconnect', { message: "Game ended due to too many disconnections." });
+                broadcastFullGameStateToAll(); // Send final state
+            }
+        } else if (!game.isGameStarted && game.players.length === 0 && game.playerSlots.every(s => s.playerId === null)) {
+            // If game wasn't started and all player slots are now empty (everyone left before start)
+            // This state is fine, game instance is ready for new players.
+            // No need to create `new Game()` here unless specific reset logic is needed.
+            console.log("All players left before game start. Game instance ready for new players.");
         }
     });
 });
 
-function broadcastGameState() {
-    if (!game || !game.players) return;
-    game.players.forEach(player => {
-        if (player.connected) {
-            const Ksocket = io.sockets.sockets.get(player.id);
+// Broadcasts the full game state to each player, tailored for them
+function broadcastFullGameStateToAll() {
+    if (!game || !game.playerSlots) return;
+    game.playerSlots.forEach(slot => {
+        if (slot.playerId && slot.connected) {
+            const Ksocket = io.sockets.sockets.get(slot.playerId);
             if (Ksocket) {
-                Ksocket.emit('gameState', game.getGameStateForPlayer(player.id));
+                Ksocket.emit('gameState', game.getGameStateForPlayer(slot.playerId));
             }
         }
     });
+     // If there are spectators, you might send a generic state to them
 }
 
-server.listen(PORT, '0.0.0.0', () => { // 明确监听所有接口
-    console.log(`Server running and listening on 0.0.0.0:${PORT}`);
-    if (process.env.NODE_ENV !== 'production') {
-        // 对于本地开发，您可以通过 localhost 或 127.0.0.1 访问
-        console.log(`For local development, access via http://localhost:${PORT} or http://127.0.0.1:${PORT}`);
+// Broadcasts tailored game state, can be specific to one or all
+function broadcastGameState(targetSocketId = null) {
+    if (!game || !game.playerSlots) return;
+    if (targetSocketId) {
+        const Ksocket = io.sockets.sockets.get(targetSocketId);
+        if (Ksocket) {
+            Ksocket.emit('gameState', game.getGameStateForPlayer(targetSocketId));
+        }
+    } else {
+        broadcastFullGameStateToAll();
     }
-    // 在 serv00 上，实际访问 URL 将由平台反向代理提供
-    console.log("On serv00, access the game via your assigned domain/URL.");
+}
+
+
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running and listening on 0.0.0.0:${PORT}`);
+    console.log(`On production, access via your assigned domain/URL.`);
 });
 
-// 优雅地处理服务器关闭（可选，但良好实践）
 process.on('SIGTERM', () => {
   console.log('SIGTERM signal received: closing HTTP server');
   server.close(() => {
     console.log('HTTP server closed');
-    // 在这里可以添加其他清理逻辑，比如关闭数据库连接等
     process.exit(0);
   });
 });
