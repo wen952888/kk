@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Big Two Game</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="opponent-hands">
+            <!-- Opponent hands will be rendered here -->
+        </div>
+
+        <div id="table">
+            <h2>Table</h2>
+            <div id="last-played-hand" class="card-area">
+                <!-- Last played hand cards -->
+            </div>
+            <p id="last-played-info"></p>
+        </div>
+
+        <div id="player-hand-area">
+            <h2>Your Hand (<span id="my-id"></span>)</h2>
+            <div id="my-hand" class="card-area">
+                <!-- Player's cards will be rendered here -->
+            </div>
+            <div id="actions">
+                <button id="play-button" disabled>Play Selected</button>
+                <button id="pass-button" disabled>Pass</button>
+            </div>
+        </div>
+        
+        <div id="game-info">
+            <h2>Game Log</h2>
+            <button id="start-game-button" style="display: none;">Start Game (Need 4 Players)</button>
+            <p id="game-status"></p>
+            <ul id="log-list"></ul>
+        </div>
+         <div id="error-message" style="color: red; margin-top: 10px;"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/client.js"></script>
+</body>
+</html>
