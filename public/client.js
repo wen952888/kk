@@ -2,7 +2,7 @@
 const socket = io();
 
 // --- State Variables ---
-let currentView = 'loading'; // Initial view
+let currentView = 'loading';
 let myUserId = null;
 let myUsername = null;
 let currentRoomId = null;
@@ -18,6 +18,8 @@ const loadingView = document.getElementById('loadingView');
 const loginRegisterView = document.getElementById('loginRegisterView');
 const lobbyView = document.getElementById('lobbyView');
 const roomView = document.getElementById('roomView');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const views = { loadingView, loginRegisterView, lobbyView, roomView, gameOverOverlay };
 // Auth
 const regPhoneInput = document.getElementById('regPhone');
 const regPasswordInput = document.getElementById('regPassword');
@@ -51,29 +53,23 @@ const sortHandButton = document.getElementById('sortHandButton');
 const playerAreas = { 0: document.getElementById('playerAreaBottom'), 1: document.getElementById('playerAreaLeft'), 2: document.getElementById('playerAreaTop'), 3: document.getElementById('playerAreaRight') };
 const readyButton = document.getElementById('readyButton');
 const gameMessage = document.getElementById('gameMessage');
-// Game Over Overlay - Get this element BEFORE it's used in the 'views' object
-const gameOverOverlay = document.getElementById('gameOverOverlay');
+// Game Over Overlay
 const gameOverTitle = document.getElementById('gameOverTitle');
 const gameOverReason = document.getElementById('gameOverReason');
 const gameOverScores = document.getElementById('gameOverScores');
 const backToLobbyButton = document.getElementById('backToLobbyButton');
-
-// Now define the 'views' object
-const views = { loadingView, loginRegisterView, lobbyView, roomView, gameOverOverlay };
 
 
 // --- Utility Functions ---
 function showView(viewName) {
     console.log(`Switching view to: ${viewName}`);
     currentView = viewName;
-
     for (const key in views) {
         if (views[key]) {
             views[key].classList.add('hidden-view');
             views[key].classList.remove('view-block', 'view-flex');
         }
     }
-
     const targetView = views[viewName];
     if (targetView) {
         targetView.classList.remove('hidden-view');
@@ -82,22 +78,13 @@ function showView(viewName) {
         } else {
             targetView.classList.add('view-block');
         }
-    } else {
-        console.warn(`View element not found: ${viewName}`);
-    }
-
+    } else { console.warn(`View element not found: ${viewName}`); }
     const scroll = (viewName !== 'roomView');
     document.documentElement.style.overflow = scroll ? '' : 'hidden';
     document.body.style.overflow = scroll ? '' : 'hidden';
-
     clearMessages();
-    if (viewName !== 'roomView') {
-        selectedCards = [];
-        currentHint = null;
-        currentHintIndex = 0;
-    }
+    if (viewName !== 'roomView') { selectedCards = []; currentHint = null; currentHintIndex = 0; }
 }
-
 function displayMessage(element, message, isError = false) { if (element) { element.textContent = message; element.className = `message ${isError ? 'error' : 'success'}`; } }
 function clearMessages() { [authMessage, lobbyMessage, gameMessage].forEach(el => { if (el) el.textContent = ''; }); }
 function getSuitSymbol(suit) { switch (suit?.toUpperCase()) { case 'H': return '♥'; case 'D': return '♦'; case 'C': return '♣'; case 'S': return '♠'; default: return '?'; } }
@@ -117,7 +104,6 @@ function compareBySuitThenRank(cardA, cardB) {
     return RANK_VALUES_CLIENT[cardA.rank] - RANK_VALUES_CLIENT[cardB.rank];
 }
 
-
 // --- Rendering Functions ---
 function renderRoomList(rooms) {
     if (!roomList) return; roomList.innerHTML = '';
@@ -131,42 +117,32 @@ function renderRoomList(rooms) {
         roomList.appendChild(item);
     });
  }
-
 function renderRoomView(state) {
     currentGameState = state;
     if (!state || !roomView) return;
-
     roomNameDisplay.textContent = state.roomName || '房间';
     gameModeDisplay.textContent = state.gameMode === 'double_landlord' ? '(双地主模式)' : '(标准模式)';
     roomStatusDisplay.textContent = `状态: ${state.status}`;
     isReady = false;
-
     Object.values(playerAreas).forEach(clearPlayerArea);
     centerPileArea.innerHTML = '';
     lastHandTypeDisplay.textContent = state.lastHandInfo ? `类型: ${state.lastHandInfo.type}` : '-';
-
     const myPlayer = state.players.find(p => p.userId === myUserId);
     if (!myPlayer) { console.error("Cannot find myself in player list!"); return; }
     const mySlot = myPlayer.slot;
-
     state.players.forEach(player => {
         const isMe = player.userId === myUserId;
         if (isMe) isReady = player.isReady;
-
         let relativeSlot = (player.slot - mySlot + 4) % 4;
         const targetArea = playerAreas[relativeSlot];
         if (targetArea) renderPlayerArea(targetArea, player, isMe, state);
     });
-
     if (state.centerPile && state.centerPile.length > 0) {
         state.centerPile.forEach(cardData => centerPileArea.appendChild(renderCard(cardData, false)));
-    } else {
-        centerPileArea.innerHTML = '-';
-    }
+    } else { centerPileArea.innerHTML = '-'; }
     updateRoomControls(state);
     if (state.currentPlayerId !== myUserId || state.status !== 'playing') clearHints();
 }
-
 function clearPlayerArea(area) {
      if (!area) return;
      area.classList.remove('current-turn');
@@ -181,16 +157,13 @@ function clearPlayerArea(area) {
      if (cardsEl) cardsEl.innerHTML = '';
      if(actions) actions.classList.add('hidden-view');
 }
-
 function renderPlayerArea(container, playerData, isMe, state) {
     const nameEl = container.querySelector('.playerName');
     const roleEl = container.querySelector('.playerRole');
     const infoEl = container.querySelector('.playerInfo');
     const cardsEl = container.querySelector('.playerCards');
-
     if (nameEl) nameEl.textContent = playerData.username + (isMe ? ' (你)' : '');
     if (roleEl) roleEl.textContent = `[${playerData.role || '?'}]`;
-
     if (infoEl) {
         let infoText = `总分: ${playerData.score || 0}`;
         if (playerData.finished) infoText += ' <span class="finished">[已完成]</span>';
@@ -198,66 +171,42 @@ function renderPlayerArea(container, playerData, isMe, state) {
         else if (state.status === 'waiting') infoText += playerData.isReady ? ' <span class="ready">[已准备]</span>' : ' <span class="not-ready">[未准备]</span>';
         infoEl.innerHTML = infoText;
     }
-    if (cardsEl) {
-        renderPlayerCards(cardsEl, playerData, isMe, state.status === 'playing' && state.currentPlayerId === myUserId);
-    }
-    if (state.status === 'playing' && playerData.userId === state.currentPlayerId) {
-        container.classList.add('current-turn');
-    } else {
-        container.classList.remove('current-turn');
-    }
+    if (cardsEl) renderPlayerCards(cardsEl, playerData, isMe, state.status === 'playing' && state.currentPlayerId === myUserId);
+    if (state.status === 'playing' && playerData.userId === state.currentPlayerId) container.classList.add('current-turn');
+    else container.classList.remove('current-turn');
 }
-
 function renderPlayerCards(container, playerData, isMe, isMyTurn) {
     container.innerHTML = '';
     const hand = isMe ? (playerData.hand || []) : [];
-
     let cardsToRender = [];
     if (isMe) {
         if (currentSortMode === 'rank') cardsToRender = [...hand].sort(compareSingleCardsClient);
         else if (currentSortMode === 'suit') cardsToRender = [...hand].sort(compareBySuitThenRank);
         else cardsToRender = [...hand];
-
         if (cardsToRender.length > 0) {
             cardsToRender.forEach(cardData => {
                 const cardElement = renderCard(cardData, false);
-                // const cardId = `${cardData.rank}${cardData.suit}`; // Not used currently
                 const isSelected = selectedCards.some(c => c.rank === cardData.rank && c.suit === cardData.suit);
                 const isHinted = currentHint && currentHint.cards.some(c => c.rank === cardData.rank && c.suit === cardData.suit);
-
                 if (isSelected) cardElement.classList.add('selected');
                 if (isHinted) cardElement.classList.add('hinted');
-
                 if (currentGameState.status === 'playing' && isMyTurn) {
                     cardElement.onclick = () => toggleCardSelection(cardData, cardElement);
                     cardElement.classList.remove('disabled');
-                } else {
-                    cardElement.classList.add('disabled');
-                }
+                } else { cardElement.classList.add('disabled'); }
                 container.appendChild(cardElement);
             });
-        } else if (playerData.finished) {
-            container.innerHTML = '<span>已完成</span>';
-        } else {
-            container.innerHTML = '<span>- 空 -</span>';
-        }
+        } else if (playerData.finished) { container.innerHTML = '<span>已完成</span>'; }
+        else { container.innerHTML = '<span>- 空 -</span>'; }
     } else {
-        if (playerData.finished) {
-             container.innerHTML = '<span>已完成</span>';
-        } else if (playerData.handCount > 0) {
-            const countSpan = document.createElement('span');
-            countSpan.textContent = `${playerData.handCount} 张 `;
-            countSpan.style.color = '#666'; countSpan.style.fontSize = '0.9em';
-            container.appendChild(countSpan);
-            for (let i = 0; i < playerData.handCount; i++) {
-                container.appendChild(renderCard(null, true));
-            }
-        } else {
-            container.innerHTML = '<span>- 空 -</span>';
-        }
+        if (playerData.finished) { container.innerHTML = '<span>已完成</span>'; }
+        else if (playerData.handCount > 0) {
+            const countSpan = document.createElement('span'); countSpan.textContent = `${playerData.handCount} 张 `;
+            countSpan.style.color = '#666'; countSpan.style.fontSize = '0.9em'; container.appendChild(countSpan);
+            for (let i = 0; i < playerData.handCount; i++) container.appendChild(renderCard(null, true));
+        } else { container.innerHTML = '<span>- 空 -</span>'; }
     }
 }
-
 function renderCard(cardData, isHidden) {
     const cardDiv = document.createElement('div'); cardDiv.classList.add('card');
     if (isHidden || !cardData) { cardDiv.classList.add('hidden'); }
@@ -269,46 +218,31 @@ function renderCard(cardData, isHidden) {
     }
     return cardDiv;
  }
-
 function updateRoomControls(state) {
-    // Ready button logic
     if (state.status === 'waiting') {
-        readyButton.classList.remove('hidden-view');
-        readyButton.classList.add('view-inline-block'); // Or appropriate display class
-        readyButton.textContent = isReady ? '取消准备' : '准备';
-        readyButton.classList.toggle('ready', isReady);
+        readyButton.classList.remove('hidden-view'); readyButton.classList.add('view-inline-block');
+        readyButton.textContent = isReady ? '取消准备' : '准备'; readyButton.classList.toggle('ready', isReady);
         gameMessage.textContent = '等待所有玩家准备 (4人)...';
-    } else {
-        readyButton.classList.add('hidden-view');
-        readyButton.classList.remove('view-inline-block');
-    }
-
-    // My actions area logic
-    if (myActionsArea) { // Check if element exists
-        if (state.status === 'playing' && state.currentPlayerId === myUserId) {
-            myActionsArea.classList.remove('hidden-view');
-            myActionsArea.classList.add('view-flex');
-            playSelectedCardsButton.disabled = selectedCards.length === 0;
-            passTurnButton.disabled = !state.lastHandInfo && !state.isFirstTurn; // Can't pass if starting or first turn with D4
-            hintButton.disabled = false;
-            sortHandButton.disabled = false;
-        } else {
-            myActionsArea.classList.add('hidden-view');
-            myActionsArea.classList.remove('view-flex');
-        }
-    }
-
-    // Game message logic
-    if (state.status === 'playing') {
+        if(myActionsArea) myActionsArea.classList.add('hidden-view'); myActionsArea.classList.remove('view-flex');
+    } else if (state.status === 'playing') {
+        readyButton.classList.add('hidden-view'); readyButton.classList.remove('view-inline-block');
         const currentPlayer = state.players.find(p => p.userId === state.currentPlayerId);
-        const turnMessage = currentPlayer
-            ? (currentPlayer.userId === myUserId ? '轮到你出牌！' : `等待 ${currentPlayer.username} 出牌...`)
-            : '游戏进行中...';
-         if (!gameMessage.textContent || gameMessage.textContent.startsWith('等待') || gameMessage.textContent === '游戏进行中...') {
-             displayMessage(gameMessage, turnMessage);
-         }
+        const turnMessage = currentPlayer ? (currentPlayer.userId === myUserId ? '轮到你出牌！' : `等待 ${currentPlayer.username} 出牌...`) : '游戏进行中...';
+        if (!gameMessage.textContent || gameMessage.textContent.startsWith('等待') || gameMessage.textContent === '游戏进行中...') displayMessage(gameMessage, turnMessage);
+        if (myActionsArea) {
+            if (state.currentPlayerId === myUserId) {
+                myActionsArea.classList.remove('hidden-view'); myActionsArea.classList.add('view-flex');
+                if(playSelectedCardsButton) playSelectedCardsButton.disabled = selectedCards.length === 0;
+                if(passTurnButton) passTurnButton.disabled = !state.lastHandInfo && !state.isFirstTurn;
+                if(hintButton) hintButton.disabled = false;
+                if(sortHandButton) sortHandButton.disabled = false;
+            } else {
+                myActionsArea.classList.add('hidden-view'); myActionsArea.classList.remove('view-flex');
+            }
+        }
     } else if (state.status === 'finished') {
-        // Game over message handled by overlay
+        readyButton.classList.add('hidden-view'); readyButton.classList.remove('view-inline-block');
+        if(myActionsArea) myActionsArea.classList.add('hidden-view'); myActionsArea.classList.remove('view-flex');
     }
 }
 
@@ -341,9 +275,8 @@ function handleLogout() {
       console.log('Logging out...');
       try { localStorage.removeItem('kkUserId'); localStorage.removeItem('kkUsername'); } catch (e) { console.error('LocalStorage error:', e); }
       myUserId = null; myUsername = null; currentRoomId = null; currentGameState = null; isReady = false; selectedCards = []; currentHint = null; currentHintIndex = 0;
-      socket.disconnect();
-      socket.connect(); // Triggers 'connect' event again for initClientSession
-      showView('loginRegisterView'); // Go to login page directly
+      socket.disconnect(); socket.connect();
+      showView('loginRegisterView');
  }
 function handleCreateRoom() {
      const roomName = createRoomNameInput.value; const password = createRoomPasswordInput.value;
@@ -375,7 +308,30 @@ function handleReadyClick() {
            if (!response.success) displayMessage(gameMessage, response.message || "无法改变准备状态。", true);
       });
  }
-function handleLeaveRoom() { console.log("Leaving room (reloading page)..."); window.location.reload(); }
+
+function handleLeaveRoom() {
+    if (!currentRoomId) {
+        console.log("Not in a room to leave.");
+        showView('lobbyView');
+        socket.emit('listRooms', (rooms) => renderRoomList(rooms));
+        return;
+    }
+    console.log(`Attempting to leave room: ${currentRoomId}`);
+    if (leaveRoomButton) leaveRoomButton.disabled = true;
+
+    socket.emit('leaveRoom', (response) => {
+        if (leaveRoomButton) leaveRoomButton.disabled = false;
+        if (response.success) {
+            displayMessage(lobbyMessage, response.message, false);
+            currentRoomId = null; currentGameState = null; selectedCards = []; currentHint = null; currentHintIndex = 0;
+            showView('lobbyView');
+            socket.emit('listRooms', (rooms) => renderRoomList(rooms));
+        } else {
+            displayMessage(gameMessage, response.message || '离开房间失败。', true);
+        }
+    });
+}
+
 function handleSortHand() {
     if (currentSortMode === 'rank') currentSortMode = 'suit'; else currentSortMode = 'rank';
     console.log("Sorting mode:", currentSortMode);
@@ -384,7 +340,6 @@ function handleSortHand() {
 }
 function toggleCardSelection(cardData, cardElement) {
     if (!cardElement) return; clearHints();
-    // const cardId = `${cardData.rank}${cardData.suit}`; // Not used
     const index = selectedCards.findIndex(c => c.rank === cardData.rank && c.suit === cardData.suit);
     if (index > -1) { selectedCards.splice(index, 1); cardElement.classList.remove('selected'); }
     else { selectedCards.push(cardData); cardElement.classList.add('selected'); }
@@ -408,7 +363,18 @@ function handlePlaySelectedCards() {
 }
 function handlePassTurn() {
     if (!currentRoomId || !currentGameState || currentGameState.status !== 'playing' || currentGameState.currentPlayerId !== myUserId) { displayMessage(gameMessage, '现在不是你的回合或状态无效。', true); return; }
-    if (!currentGameState.lastHandInfo && !currentGameState.isFirstTurn) { displayMessage(gameMessage, '您必须出牌。', true); return; }
+    // Allow passing on first turn if not the D4 holder (server will validate if D4 holder tries to pass)
+    // More accurately, only disallow pass if lastHandInfo is null AND it's NOT the first turn for D4 player
+    if (!currentGameState.lastHandInfo && !currentGameState.isFirstTurn) {
+        // Also, the D4 player on the very first turn cannot pass if no one has played yet.
+        // This condition might be complex, better handled mostly by server.
+        // Client check can be simplified: if !lastHandInfo (meaning I'm starting a new round), I can't pass unless game is first turn and I don't have D4 (server checks D4)
+         if (!currentGameState.lastHandInfo && !currentGameState.isFirstTurn) { // If I'm leading a new round (not first turn overall)
+            displayMessage(gameMessage, '您必须出牌。', true);
+            return;
+        }
+    }
+
     displayMessage(gameMessage, '正在 Pass...');
     if(playSelectedCardsButton) playSelectedCardsButton.disabled = true;
     if(passTurnButton) passTurnButton.disabled = true;
@@ -457,18 +423,17 @@ function showGameOver(scoreResult) {
     gameOverReason.textContent = scoreResult.reason || "";
     gameOverScores.innerHTML = '';
     if (scoreResult.scoreChanges) {
-         const finalScores = scoreResult.finalScores || currentGameState.players || []; // Fallback
+         const finalScores = scoreResult.finalScores || currentGameState.players || [];
          const changes = scoreResult.scoreChanges;
-         finalScores.forEach(playerData => { // Iterate over player data that includes id, name, role, score
+         finalScores.forEach(playerData => {
              const change = changes[playerData.id] || 0;
              const changeText = change > 0 ? `+${change}` : (change < 0 ? `${change}` : '0');
              const changeClass = change > 0 ? 'score-plus' : (change < 0 ? 'score-minus' : 'score-zero');
              const scoreP = document.createElement('p');
-             // Use playerData which should have the updated total score
              scoreP.innerHTML = `${playerData.name} (${playerData.role || '?'}) : <span class="${changeClass}">${changeText}</span> (总分: ${playerData.score})`;
              gameOverScores.appendChild(scoreP);
          });
-    } else if (scoreResult.finalScores) { // If only final scores provided
+    } else if (scoreResult.finalScores) {
          scoreResult.finalScores.forEach(playerData => {
             const scoreP = document.createElement('p');
             scoreP.innerHTML = `${playerData.name} (${playerData.role || '?'}) : (总分: ${playerData.score})`;
@@ -477,7 +442,6 @@ function showGameOver(scoreResult) {
     }
     showView('gameOverOverlay');
 }
-
 
 // --- Socket Event Listeners ---
 socket.on('connect', () => { console.log('Connected to server! Socket ID:', socket.id); initClientSession(); });
@@ -545,13 +509,10 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM Loaded. Setting up...");
     document.documentElement.style.overflow = ''; document.body.style.overflow = '';
     setupEventListeners();
-    // Initial view is loadingView, 'connect' event will trigger session check.
-    // No need to call showView('loadingView') if it's the default visible.
-    // If socket is already connected (e.g. from hot reload), manually trigger session check.
     if (socket.connected) {
          initClientSession();
     } else {
-        showView('loadingView'); // Show loading if not yet connected
+        showView('loadingView');
     }
     console.log('Client setup complete.');
 });
