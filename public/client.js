@@ -1,13 +1,10 @@
 // public/client.js
-// (大部分代码与上一个“完整版”的 client.js 相同)
-// 关键修改点: renderCard 函数
-
-// --- (顶部变量和工具函数等保持与上一个完整版一致) ---
 const socket = io({
     reconnectionAttempts: 5,
     reconnectionDelay: 3000
 });
-// ... (State Variables, DOM Element (ensure they match new HTML), Utility Functions - largely same) ...
+
+// --- State Variables ---
 let currentView = 'loading';
 let myUserId = null;
 let myUsername = null;
@@ -20,6 +17,7 @@ let currentSortMode = 'rank';
 let currentHint = null;
 let currentHintCycleIndex = 0;
 
+// --- DOM Elements ---
 const loadingView = document.getElementById('loadingView');
 const loginRegisterView = document.getElementById('loginRegisterView');
 const lobbyView = document.getElementById('lobbyView');
@@ -33,7 +31,7 @@ const loginPhoneInput = document.getElementById('loginPhone');
 const loginPasswordInput = document.getElementById('loginPassword');
 const loginButton = document.getElementById('loginButton');
 const authMessage = document.getElementById('authMessage');
-const logoutButton = document.getElementById('logoutButton');
+const logoutButton = document.getElementById('logoutButton'); // Lobby logout
 const lobbyUsername = document.getElementById('lobbyUsername');
 const createRoomNameInput = document.getElementById('createRoomName');
 const createRoomPasswordInput = document.getElementById('createRoomPassword');
@@ -58,8 +56,8 @@ const gameOverReason = document.getElementById('gameOverReason');
 const gameOverScores = document.getElementById('gameOverScores');
 const backToLobbyButton = document.getElementById('backToLobbyButton');
 
-const ALARM_ICON_SRC = '/images/alarm-icon.svg';
-const AVATAR_PATHS = [
+const ALARM_ICON_SRC = '/images/alarm-icon.svg'; // 确保你有这个闹钟图标
+const AVATAR_PATHS = [ // 准备4个不同的头像路径
     '/images/avatar-slot-0.png',
     '/images/avatar-slot-1.png',
     '/images/avatar-slot-2.png',
@@ -67,7 +65,8 @@ const AVATAR_PATHS = [
 ];
 
 
-function showView(viewName) { /* ... (与上一版相同) ... */
+// --- Utility Functions ---
+function showView(viewName) {
     console.log(`Switching view from ${currentView} to: ${viewName}`);
     currentView = viewName;
     for (const key in views) {
@@ -94,7 +93,7 @@ function showView(viewName) { /* ... (与上一版相同) ... */
         if (currentView !== 'gameOverOverlay') {currentGameState = null; previousGameState = null;}
     }
 }
-function displayMessage(element, message, isError = false, isSuccess = false) { /* ... (与上一版相同) ... */
+function displayMessage(element, message, isError = false, isSuccess = false) {
     if (element) {
         element.textContent = message;
         element.classList.remove('error', 'success');
@@ -103,7 +102,7 @@ function displayMessage(element, message, isError = false, isSuccess = false) { 
         else if (element.id !== 'gameStatusDisplay') element.className = 'message';
     }
 }
-function clearMessages() { /* ... (与上一版相同) ... */
+function clearMessages() {
     [authMessage, lobbyMessage].forEach(el => {
         if (el) {
             el.textContent = ''; el.classList.remove('error', 'success'); el.className = 'message';
@@ -114,26 +113,24 @@ function clearMessages() { /* ... (与上一版相同) ... */
         // gameStatusDisp.textContent = '';
     }
 }
-function getSuitSymbol(suit) { /* ... (与上一版相同) ... */ return {"H":"♥","D":"♦","C":"♣","S":"♠"}[suit?.toUpperCase()]||"?"; }
-function getSuitClass(suit) { /* ... (与上一版相同) ... */ return {"H":"hearts","D":"diamonds","C":"clubs","S":"spades"}[suit?.toUpperCase()]||""; }
+function getSuitSymbol(suit) { switch (suit?.toUpperCase()) { case 'H': return '♥'; case 'D': return '♦'; case 'C': return '♣'; case 'S': return '♠'; default: return '?'; } }
+function getSuitClass(suit) { switch (suit?.toUpperCase()) { case 'H': return 'hearts'; case 'D': return 'diamonds'; case 'C': return 'clubs'; case 'S': return 'spades'; default: return ''; } }
 const RANK_ORDER_CLIENT = ["4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A", "2", "3"];
 const RANK_VALUES_CLIENT = {}; RANK_ORDER_CLIENT.forEach((r, i) => RANK_VALUES_CLIENT[r] = i);
 const SUIT_ORDER_CLIENT = ["D", "C", "H", "S"];
 const SUIT_VALUES_CLIENT = {}; SUIT_ORDER_CLIENT.forEach((s, i) => SUIT_VALUES_CLIENT[s] = i);
-function compareSingleCardsClient(cardA, cardB) { /* ... (与上一版相同) ... */
+function compareSingleCardsClient(cardA, cardB) {
     const rankValueA = RANK_VALUES_CLIENT[cardA.rank]; const rankValueB = RANK_VALUES_CLIENT[cardB.rank];
     if (rankValueA !== rankValueB) return rankValueA - rankValueB;
     return SUIT_VALUES_CLIENT[cardA.suit] - SUIT_VALUES_CLIENT[cardB.suit];
 }
-function compareBySuitThenRank(cardA, cardB) { /* ... (与上一版相同) ... */
+function compareBySuitThenRank(cardA, cardB) {
     const suitValueA = SUIT_VALUES_CLIENT[cardA.suit]; const suitValueB = SUIT_VALUES_CLIENT[cardB.suit];
     if (suitValueA !== suitValueB) return suitValueA - suitValueB;
     return RANK_VALUES_CLIENT[cardA.rank] - RANK_VALUES_CLIENT[cardB.rank];
 }
 
-
 // --- Rendering Functions ---
-// (renderRoomList, updateGameInfoBarDOM, updateGameStatusDisplayDOM, renderCenterPileDOM - 与上一版相同)
 function renderRoomList(rooms) {
     console.log('CLIENT: renderRoomList called with rooms:', rooms);
     if (!roomListEl) {
@@ -164,6 +161,8 @@ function renderRoomList(rooms) {
         roomListEl.appendChild(item);
     });
  }
+
+// --- Partial Update Functions (DEFINITIONS MUST BE HERE) ---
 function updateGameInfoBarDOM(state) {
     const gameInfoBar = document.getElementById('gameInfoBar');
     if (gameInfoBar) {
@@ -208,18 +207,25 @@ function renderCenterPileDOM(state) {
     }
     if(lastHandTypeDisplay) lastHandTypeDisplay.textContent = state.lastHandInfo ? `类型: ${state.lastHandInfo.type}` : '新回合';
 }
-
+// --- End of Partial Update Functions ---
 
 function renderRoomView(state) {
-    if (!state || !roomView || !myUserId) { /* ... */ return; }
+    if (!state || !roomView || !myUserId) {
+        console.error("RenderRoomView (full) called with invalid state or no myUserId", state, myUserId);
+        if (!myUserId && currentView === 'roomView') { handleLogout(); alert("用户身份丢失，请重新登录。"); }
+        return;
+    }
     console.log("Executing FULL renderRoomView based on new state:", JSON.parse(JSON.stringify(state)));
-    updateGameInfoBarDOM(state);
-    updateGameStatusDisplayDOM(state);
+
+    updateGameInfoBarDOM(state); // Call the defined function
+    updateGameStatusDisplayDOM(state); // Call the defined function
+
     Object.values(playerAreas).forEach(clearPlayerAreaDOM);
     const myPlayer = state.players.find(p => p.userId === myUserId);
-    if (!myPlayer) { /* ... */ return; }
+    if (!myPlayer) { console.error("My player data not found in game state!", state.players); handleGameLeave(); return; }
     isReadyForGame = myPlayer.isReady;
     const mySlot = myPlayer.slot;
+
     state.players.forEach(player => {
         const isMe = player.userId === myUserId;
         let relativeSlot = (player.slot - mySlot + state.players.length) % state.players.length;
@@ -227,13 +233,15 @@ function renderRoomView(state) {
         if (targetArea) renderPlayerArea(targetArea, player, isMe, state, player.slot);
         else console.warn(`No target area for relative slot ${relativeSlot} (Player slot ${player.slot})`);
     });
-    renderCenterPileDOM(state);
+
+    renderCenterPileDOM(state); // Call the defined function
     updateRoomControls(state);
+
     if (state.currentPlayerId !== myUserId || state.status !== 'playing') {
         clearHintsAndSelection(false);
     }
 }
-function clearPlayerAreaDOM(area) { /* ... (与上一版相同) ... */
+function clearPlayerAreaDOM(area) {
      if (!area) return;
      const avatarEl = area.querySelector('.player-avatar');
      const nameEl = area.querySelector('.playerName');
@@ -257,7 +265,7 @@ function clearPlayerAreaDOM(area) { /* ... (与上一版相同) ... */
         if (readyBtn) readyBtn.classList.add('hidden-view');
      }
 }
-function renderPlayerArea(container, playerData, isMe, state, absoluteSlot) { /* ... (与上一版相同) ... */
+function renderPlayerArea(container, playerData, isMe, state, absoluteSlot) {
     const avatarEl = container.querySelector('.player-avatar');
     const nameEl = container.querySelector('.playerName');
     const roleEl = container.querySelector('.playerRole');
@@ -281,23 +289,23 @@ function renderPlayerArea(container, playerData, isMe, state, absoluteSlot) { /*
         let infoText = `总分: ${playerData.score || 0}`;
         if (playerData.finished) infoText += ' <span class="finished">[已完成]</span>';
         else if (!playerData.connected && state.status !== 'waiting') infoText += ' <span class="disconnected">[已断线]</span>';
-        else if (state.status === 'waiting' && isMe) { /* रेडी बटन द्वारा नियंत्रित */ }
+        else if (state.status === 'waiting' && isMe) { /* Ready status for self is handled by the button */ }
         else if (state.status === 'waiting' && !isMe) {
              infoText += playerData.isReady ? ' <span class="ready">[已准备]</span>' : ' <span class="not-ready">[未准备]</span>';
         }
         infoEl.innerHTML = infoText;
     }
     if (isMe) {
-        const readyButtonInstance = container.querySelector('#readyButton');
+        const readyButtonInstance = container.querySelector('#readyButton'); // Button is in playerHeader of selfArea
         if (readyButtonInstance && state.status === 'waiting') {
-             // updateRoomControls will handle text/class
+             // updateRoomControls will handle visibility and text
         } else if (readyButtonInstance) {
             readyButtonInstance.classList.add('hidden-view');
         }
     }
     if (cardsEl) renderPlayerCards(cardsEl, playerData, isMe, state.status === 'playing' && state.currentPlayerId === myUserId);
 }
-function fanCards(cardContainer, cardElements, areaId) { /* ... (与上一版相同) ... */
+function fanCards(cardContainer, cardElements, areaId) {
     const numCards = cardElements.length;
     if (numCards === 0) return;
     const cardWidth = 60;
@@ -331,8 +339,6 @@ function fanCards(cardContainer, cardElements, areaId) { /* ... (与上一版相
         });
     }
 }
-
-// ***** MODIFIED renderPlayerCards and renderCard *****
 function getCardImageFilename(cardData) {
     if (!cardData) return null;
     let rankStr = cardData.rank.toLowerCase();
@@ -341,6 +347,7 @@ function getCardImageFilename(cardData) {
     else if (rankStr === 'q') rankStr = 'queen';
     else if (rankStr === 'k') rankStr = 'king';
     else if (rankStr === 'a') rankStr = 'ace';
+    // For ranks 2-9, rankStr is already the digit.
 
     let suitStr = '';
     switch (cardData.suit.toUpperCase()) {
@@ -348,44 +355,35 @@ function getCardImageFilename(cardData) {
         case 'H': suitStr = 'hearts'; break;
         case 'D': suitStr = 'diamonds'; break;
         case 'C': suitStr = 'clubs'; break;
-        default: return null; // Invalid suit
+        default: console.warn("Invalid suit for card image:", cardData.suit); return null;
     }
     return `${rankStr}_of_${suitStr}.png`;
 }
-
 function renderCard(cardData, isHidden, isCenterPileCard = false) {
     const cardDiv = document.createElement('div');
     cardDiv.classList.add('card');
-
     if (isCenterPileCard) {
         cardDiv.style.position = 'relative';
         cardDiv.style.margin = '3px';
     }
-    // For self-cards, CSS #playerAreaBottom .playerCards .card handles position:relative and margin
-
     if (isHidden || !cardData) {
-        cardDiv.classList.add('hidden'); // This will apply background-image for card-back from CSS
+        cardDiv.classList.add('hidden'); // Applies card-back.png via CSS
     } else {
         cardDiv.classList.add('visible');
-        // Instead of rank/suit spans, set background image
         const filename = getCardImageFilename(cardData);
         if (filename) {
-            cardDiv.style.backgroundImage = `url('/images/cards/${filename}')`; // Assuming cards are in /images/cards/
-            cardDiv.style.backgroundSize = 'contain'; // or 'cover' depending on desired look
-            cardDiv.style.backgroundRepeat = 'no-repeat';
-            cardDiv.style.backgroundPosition = 'center';
-            // Add data attributes for selection logic, if card images don't inherently show rank/suit for JS
-            cardDiv.dataset.suit = cardData.suit;
+            cardDiv.style.backgroundImage = `url('/images/cards/${filename}')`;
+            // CSS already has background-size: contain; background-repeat: no-repeat; background-position: center;
+            cardDiv.dataset.suit = cardData.suit; // Keep data attributes for logic if needed
             cardDiv.dataset.rank = cardData.rank;
-        } else {
-            // Fallback if image name generation fails (e.g. show text like before)
+        } else { // Fallback to text if image name fails
             cardDiv.textContent = `${cardData.rank}${getSuitSymbol(cardData.suit)}`;
-            cardDiv.classList.add(getSuitClass(cardData.suit)); // Add color class for text fallback
+            cardDiv.classList.add(getSuitClass(cardData.suit));
+            console.error("Failed to generate filename for card:", cardData);
         }
     }
     return cardDiv;
 }
-
 function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
     container.innerHTML = '';
     const cardElements = [];
@@ -398,15 +396,12 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
         } else {
             if (currentSortMode === 'rank') sortedHand.sort(compareSingleCardsClient);
             else if (currentSortMode === 'suit') sortedHand.sort(compareBySuitThenRank);
-
             sortedHand.forEach(cardData => {
-                const cardElement = renderCard(cardData, false); // Render card image
-
+                const cardElement = renderCard(cardData, false);
                 const isSelected = selectedCards.some(c => c.rank === cardData.rank && c.suit === cardData.suit);
                 const isHinted = currentHint && currentHint.cards.some(c => c.rank === cardData.rank && c.suit === cardData.suit);
                 if (isSelected) cardElement.classList.add('selected');
                 if (isHinted) cardElement.classList.add('hinted');
-
                 if (isMyTurnAndPlaying) {
                     cardElement.onclick = () => toggleCardSelection(cardData, cardElement);
                     cardElement.classList.remove('disabled');
@@ -417,12 +412,12 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
                 cardElements.push(cardElement);
             });
         }
-    } else { // Opponent's hand
+    } else {
         if (playerData.finished) {
             container.innerHTML = '<span style="color:#888; font-style:italic;">已出完</span>';
         } else if (playerData.handCount > 0) {
             for (let i = 0; i < playerData.handCount; i++) {
-                const cardElement = renderCard(null, true); // Render card back
+                const cardElement = renderCard(null, true);
                 container.appendChild(cardElement);
                 cardElements.push(cardElement);
             }
@@ -445,12 +440,6 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
         });
     }
 }
-// ***** END OF MODIFIED renderPlayerCards and renderCard *****
-
-
-// ... (updateRoomControls, Event Handlers, Socket Listeners, initClientSession, setupEventListeners, DOMContentLoaded
-//      ARE THE SAME AS THE PREVIOUS FULL client.js VERSION.) ...
-// (Ensure to copy the rest of the functions from the previous FULL client.js I provided)
 function updateRoomControls(state) {
     if (!state || !myUserId) return;
     const myPlayerInState = state.players.find(p => p.userId === myUserId);
@@ -486,6 +475,9 @@ function updateRoomControls(state) {
         }
     }
 }
+
+// --- (Event Handlers: handleRegister to DOMContentLoaded - REMAINDER OF THE FILE) ---
+// (This section should be IDENTICAL to the previous full client.js version I provided)
 function handleRegister() {
     const phone = regPhoneInput.value.trim(); const password = regPasswordInput.value;
     if (!phone || !password) { displayMessage(authMessage, '请输入手机号和密码。', true); return; }
