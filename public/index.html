@@ -2,13 +2,17 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> <!-- Prevent zoom -->
+    <!-- 修改 viewport -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KK 在线纸牌</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- 添加 ?v=1.0.0 用于简单缓存清除，每次修改 CSS/JS 时递增版本号 -->
+    <link rel="stylesheet" href="style.css?v=1.0.1">
 </head>
 <body>
-    <!-- Views: loading, loginRegister, lobby -->
+
     <div id="loadingView"><p>连接中...</p></div>
+
+    <!-- 为视图添加 hidden-view 类，移除内联 style -->
     <div id="loginRegisterView" class="view hidden-view">
         <h2>登录 / 注册</h2>
         <div id="authFormContainer">
@@ -17,6 +21,7 @@
         </div>
         <p id="authMessage" class="message"></p>
     </div>
+
     <div id="lobbyView" class="view hidden-view">
         <h2>游戏大厅</h2><p>欢迎, <span id="lobbyUsername"></span>! <button id="logoutButton" class="inline-button">登出</button></p>
         <div id="createRoomSection"><h3>创建房间</h3><input type="text" id="createRoomName" placeholder="房间名称"><input type="password" id="createRoomPassword" placeholder="房间密码 (可选)"><button id="createRoomButton">创建</button></div>
@@ -24,26 +29,24 @@
         <p id="lobbyMessage" class="message"></p>
     </div>
 
-    <!-- Room/Game View -->
-    <div id="roomView" class="view hidden-view">
+    <div id="roomView" class="view hidden-view"> <!-- 应用 flex 布局 -->
         <div id="roomHeader">
              <h2 id="roomNameDisplay">房间名称</h2>
-             <span id="gameModeDisplay"></span> <!-- Display Game Mode -->
+             <span id="gameModeDisplay"></span>
              <button id="leaveRoomButton">离开</button>
         </div>
         <p id="roomStatusDisplay">等待玩家...</p>
 
         <div id="gameArea">
-            <div id="playerAreaTop" class="playerArea"><div class="playerName"></div><div class="playerInfo"></div><div class="playerCards opponentHand"></div></div>
-            <div id="playerAreaLeft" class="playerArea"><div class="playerName"></div><div class="playerInfo"></div><div class="playerCards opponentHand"></div></div>
+            <div id="playerAreaTop" class="playerArea"><div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div><div class="playerInfo"></div><div class="playerCards opponentHand"></div></div>
+            <div id="playerAreaLeft" class="playerArea"><div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div><div class="playerInfo"></div><div class="playerCards opponentHand"></div></div>
             <div id="centerArea"><p>上一手牌:</p><div id="centerPileArea"></div><span id="lastHandTypeDisplay"></span></div>
-            <div id="playerAreaRight" class="playerArea"><div class="playerName"></div><div class="playerInfo"></div><div class="playerCards opponentHand"></div></div>
+            <div id="playerAreaRight" class="playerArea"><div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div><div class="playerInfo"></div><div class="playerCards opponentHand"></div></div>
             <div id="playerAreaBottom" class="playerArea selfArea">
-                <div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div> <!-- Combine name and role -->
+                <div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div>
                 <div class="playerInfo"></div>
                 <div id="myHand" class="playerCards myHand"></div>
-                 <!-- Action buttons within player area -->
-                <div id="myActions" class="my-actions">
+                <div id="myActions" class="my-actions hidden-view"> <!-- 初始隐藏 -->
                     <button id="playSelectedCardsButton" disabled>出 牌</button>
                     <button id="passTurnButton">不要 (Pass)</button>
                     <button id="hintButton">提示</button>
@@ -53,24 +56,23 @@
         </div>
 
         <div id="roomControls">
-             <button id="readyButton" style="display: none;">准备</button>
+             <!-- 移除内联 style，JS 会控制显示 -->
+             <button id="readyButton" class="hidden-view">准备</button>
              <p id="gameMessage" class="message"></p>
         </div>
 
-         <!-- Game Over Overlay -->
-         <div id="gameOverOverlay" class="overlay hidden-view">
+         <div id="gameOverOverlay" class="overlay hidden-view"> <!-- 初始隐藏 -->
              <div class="overlay-content">
                  <h3 id="gameOverTitle">游戏结束!</h3>
                  <p id="gameOverReason"></p>
                  <div id="gameOverScores"></div>
                  <button id="backToLobbyButton">返回大厅</button>
-                 <!-- Add "Play Again" button later -->
              </div>
          </div>
-
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="client.js"></script>
+    <!-- 添加 ?v=1.0.0 用于简单缓存清除 -->
+    <script src="client.js?v=1.0.1"></script>
 </body>
 </html>
