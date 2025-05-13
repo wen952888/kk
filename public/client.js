@@ -1,6 +1,6 @@
 // public/client.js
 // (大部分代码与上一个“完整版”的 client.js 相同，关键修改如下)
-// (主要是 updateRoomControls 中对新的按钮容器 .my-actions-container 的显隐控制)
+// (主要是 renderPlayerArea 中对头像和闹钟的处理)
 
 // --- (顶部变量和工具函数保持不变，与上一个完整版一致) ---
 const socket = io({
@@ -42,7 +42,7 @@ const lobbyMessage = document.getElementById('lobbyMessage');
 const centerPileArea = document.getElementById('centerPileArea');
 const lastHandTypeDisplay = document.getElementById('lastHandTypeDisplay');
 const myHandArea = document.getElementById('myHand');
-// const myActionsArea = document.getElementById('myActions'); // 旧的按钮容器，现在用 .my-actions-container
+// const myActionsArea = document.getElementById('myActions'); // 旧的按钮容器
 const playSelectedCardsButton = document.getElementById('playSelectedCardsButton');
 const passTurnButton = document.getElementById('passTurnButton');
 const hintButton = document.getElementById('hintButton');
@@ -57,6 +57,8 @@ const gameOverTitle = document.getElementById('gameOverTitle');
 const gameOverReason = document.getElementById('gameOverReason');
 const gameOverScores = document.getElementById('gameOverScores');
 const backToLobbyButton = document.getElementById('backToLobbyButton');
+
+const ALARM_ICON_SRC = '/images/alarm-icon.svg'; // 闹钟图标路径，请确保您有这个文件
 
 
 function showView(viewName) {
@@ -92,7 +94,7 @@ function displayMessage(element, message, isError = false, isSuccess = false) {
         element.classList.remove('error', 'success');
         if (isError) element.classList.add('error');
         else if (isSuccess) element.classList.add('success');
-        else element.className = element.id === 'gameStatusDisplay' ? '' : 'message'; // gameStatusDisplay 不需要 message 类
+        else if (element.id !== 'gameStatusDisplay') element.className = 'message';
     }
 }
 function clearMessages() {
@@ -203,27 +205,45 @@ function renderRoomView(state) {
 }
 function clearPlayerAreaDOM(area) {
      if (!area) return;
-     area.classList.remove('current-turn');
+    //  area.classList.remove('current-turn'); // 移除区域高亮，因为现在用头像提示
+     const avatarEl = area.querySelector('.player-avatar');
      const nameEl = area.querySelector('.playerName');
      const roleEl = area.querySelector('.playerRole');
      const infoEl = area.querySelector('.playerInfo');
      const cardsEl = area.querySelector('.playerCards');
      const handCountEl = area.querySelector('.hand-count-display');
+
+     if (avatarEl) avatarEl.innerHTML = ''; // 清空头像（移除闹钟）
      if (nameEl) nameEl.textContent = '空位';
      if (roleEl) roleEl.textContent = '';
      if (infoEl) infoEl.innerHTML = '';
      if (cardsEl) cardsEl.innerHTML = '';
      if (handCountEl) handCountEl.remove();
      if (area.id === 'playerAreaBottom') {
-        const actionsContainer = area.querySelector('.my-actions-container'); // Target new container
+        const actionsContainer = area.querySelector('.my-actions-container');
         if(actionsContainer) { actionsContainer.classList.add('hidden-view'); }
      }
 }
 function renderPlayerArea(container, playerData, isMe, state) {
+    const avatarEl = container.querySelector('.player-avatar');
     const nameEl = container.querySelector('.playerName');
     const roleEl = container.querySelector('.playerRole');
     const infoEl = container.querySelector('.playerInfo');
     const cardsEl = container.querySelector('.playerCards');
+
+    if (avatarEl) {
+        avatarEl.innerHTML = ''; // 清除旧内容（如闹钟）
+        avatarEl.style.backgroundImage = `url('/images/avatar-default.png')`; // 默认头像，请准备此图片
+        if (state.status === 'playing' && playerData.userId === state.currentPlayerId) {
+            const alarmImg = document.createElement('img');
+            alarmImg.src = ALARM_ICON_SRC; // 使用常量定义的闹钟图标路径
+            alarmImg.alt = '出牌提示';
+            alarmImg.classList.add('alarm-icon');
+            avatarEl.appendChild(alarmImg);
+            avatarEl.style.backgroundImage = 'none'; // 隐藏默认头像背景，显示闹钟
+        }
+    }
+
     if (nameEl) nameEl.textContent = playerData.username + (isMe ? ' (你)' : '');
     if (roleEl) roleEl.textContent = playerData.role ? `[${playerData.role}]` : '[?]';
     if (infoEl) {
@@ -234,16 +254,15 @@ function renderPlayerArea(container, playerData, isMe, state) {
         infoEl.innerHTML = infoText;
     }
     if (cardsEl) renderPlayerCards(cardsEl, playerData, isMe, state.status === 'playing' && state.currentPlayerId === myUserId);
-    if (state.status === 'playing' && playerData.userId === state.currentPlayerId) container.classList.add('current-turn');
-    else container.classList.remove('current-turn');
+    // container.classList.remove('current-turn'); // 移除区域高亮
 }
 
+// ... (fanCards, renderPlayerCards, renderCard 与上一版保持一致) ...
+// (确保 renderPlayerCards 中自己的牌是 position:relative, margin: 0 2px; 以实现平铺)
 function fanCards(cardContainer, cardElements, areaId) {
     const numCards = cardElements.length;
     if (numCards === 0) return;
-
     const cardWidth = 60;
-
     if (areaId === 'playerAreaBottom') {
         cardElements.forEach((card, i) => {
             card.style.zIndex = i;
@@ -252,14 +271,11 @@ function fanCards(cardContainer, cardElements, areaId) {
         let maxAngle = 25;
         let angleStep = numCards > 1 ? maxAngle / (numCards - 1) : 0;
         angleStep = Math.min(angleStep, 4);
-
         let initialRotation = -((numCards - 1) * angleStep) / 2;
         let offsetMultiplier = 1.8;
-
         cardElements.forEach((card, i) => {
             const rotation = initialRotation + i * angleStep;
             let tx = "0px", ty = "0px";
-
             if (areaId === 'playerAreaTop') {
                 card.style.left = `calc(50% - ${cardWidth / 2}px)`;
                 ty = `${i * offsetMultiplier}px`;
@@ -277,12 +293,9 @@ function fanCards(cardContainer, cardElements, areaId) {
         });
     }
 }
-
-
 function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
     container.innerHTML = '';
     const cardElements = [];
-
     if (isMe) {
         let sortedHand = playerData.hand ? [...playerData.hand] : [];
         if (sortedHand.length === 0 && !playerData.finished) {
@@ -292,10 +305,8 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
         } else {
             if (currentSortMode === 'rank') sortedHand.sort(compareSingleCardsClient);
             else if (currentSortMode === 'suit') sortedHand.sort(compareBySuitThenRank);
-
             sortedHand.forEach(cardData => {
                 const cardElement = renderCard(cardData, false);
-
                 const isSelected = selectedCards.some(c => c.rank === cardData.rank && c.suit === cardData.suit);
                 const isHinted = currentHint && currentHint.cards.some(c => c.rank === cardData.rank && c.suit === cardData.suit);
                 if (isSelected) cardElement.classList.add('selected');
@@ -326,32 +337,26 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
                 container.closest('.playerArea')?.appendChild(handCountEl);
             }
             handCountEl.textContent = `${playerData.handCount} 张`;
-
         } else {
             container.innerHTML = '<span style="color:#ccc; font-style:italic;">- 无手牌 -</span>';
             let handCountEl = container.closest('.playerArea')?.querySelector('.hand-count-display');
             if (handCountEl) handCountEl.remove();
         }
     }
-
     if (cardElements.length > 0) {
         requestAnimationFrame(() => {
              fanCards(container, cardElements, container.closest('.playerArea')?.id);
         });
     }
 }
-
 function renderCard(cardData, isHidden, isCenterPileCard = false) {
     const cardDiv = document.createElement('div'); cardDiv.classList.add('card');
     if (isCenterPileCard) {
         cardDiv.style.position = 'relative';
         cardDiv.style.margin = '3px';
-    } else if (myHandArea && myHandArea === cardDiv.parentNode) { // Check if parent is myHandArea
-        // My cards are styled via CSS to be relative and use margin for spacing
-        // Their position is relative, as set by CSS for #playerAreaBottom .playerCards .card
+    } else if (myHandArea && myHandArea === cardDiv.parentNode?.parentNode) {
+        // My cards are already styled by CSS to be relative and have margin
     }
-
-
     if (isHidden || !cardData) {
         cardDiv.classList.add('hidden');
     } else {
@@ -362,6 +367,10 @@ function renderCard(cardData, isHidden, isCenterPileCard = false) {
     }
     return cardDiv;
  }
+
+
+// ... (updateRoomControls, handleRegister, etc. 与上一版“完整版” client.js 相同，直到文件末尾) ...
+// (确保所有事件处理器和 socket 监听器都从上一个完整版复制过来)
 function updateRoomControls(state) {
     if (!state || !myUserId) return;
     const myPlayerInState = state.players.find(p => p.userId === myUserId);
@@ -372,7 +381,7 @@ function updateRoomControls(state) {
         if (state.status === 'waiting') {
             readyButtonInstance.classList.remove('hidden-view');
             readyButtonInstance.classList.add('view-inline-block');
-            readyButtonInstance.textContent = myPlayerInState.isReady ? '取消' : '准备'; // Shorter text
+            readyButtonInstance.textContent = myPlayerInState.isReady ? '取消' : '准备';
             readyButtonInstance.classList.toggle('ready', myPlayerInState.isReady);
             readyButtonInstance.disabled = false;
         } else {
@@ -385,7 +394,6 @@ function updateRoomControls(state) {
     if (actionsContainer) {
         if (state.status === 'playing' && state.currentPlayerId === myUserId && !myPlayerInState.finished) {
             actionsContainer.classList.remove('hidden-view');
-            // Button states
             if(playSelectedCardsButton) playSelectedCardsButton.disabled = selectedCards.length === 0;
             if(passTurnButton) {
                 let disablePass = (!state.lastHandInfo && !state.isFirstTurn);
@@ -403,12 +411,6 @@ function updateRoomControls(state) {
     }
 }
 
-// --- (Rest of the client.js code: handleRegister, handleLogin, handleLogout, handleGameLeave, etc.
-//      handlePlaySelectedCards, handlePassTurn, handleHint, Socket Listeners, initClientSession, setupEventListeners
-//      should be THE SAME AS THE PREVIOUS FULL VERSION I PROVIDED.
-//      The key changes were in the rendering and control update functions above.) ---
-
-// (Make sure to use the FULL client.js from the penultimate response and apply the changes shown in this response's client.js snippet)
 function handleRegister() {
     const phone = regPhoneInput.value.trim(); const password = regPasswordInput.value;
     if (!phone || !password) { displayMessage(authMessage, '请输入手机号和密码。', true); return; }
@@ -555,12 +557,11 @@ function handlePlaySelectedCards() {
         if (!response.success) {
             displayMessage(gameStatusDisp, response.message || '出牌失败。', true);
             if (currentGameState && currentGameState.currentPlayerId === myUserId) {
-                setGameActionButtonsDisabled(false); // Re-enable only if invalid and still my turn
+                setGameActionButtonsDisabled(false);
             }
         } else {
             selectedCards = [];
             clearHintsAndSelection(true);
-            // Status will be updated by gameStateUpdate
         }
     });
 }
@@ -617,7 +618,7 @@ function setGameActionButtonsDisabled(disabled) {
         if(passTurnButton) passTurnButton.disabled = true;
         if(hintButton) hintButton.disabled = true;
     } else {
-        if (currentGameState) updateRoomControls(currentGameState); // Let updateRoomControls set correct states
+        if (currentGameState) updateRoomControls(currentGameState);
     }
 }
 
@@ -780,8 +781,8 @@ socket.on('gameStateUpdate', (newState) => {
             selectedCards = [];
             clearHintsAndSelection(true);
         }
-        currentGameState = newState;
-        renderRoomView(newState); // This should trigger updates including button states via updateRoomControls
+        currentGameState = newState; // Update local state *before* rendering
+        renderRoomView(newState);    // Re-render with the new state
     } else if (currentRoomId && currentRoomId !== newState.roomId) {
         console.warn("Received gameStateUpdate for a different room. Ignoring.");
     }
@@ -790,7 +791,7 @@ socket.on('invalidPlay', ({ message }) => {
     const gameStatusDisp = document.getElementById('gameStatusDisplay');
     displayMessage(gameStatusDisp, `操作无效: ${message}`, true);
     if (currentGameState && currentGameState.currentPlayerId === myUserId) {
-        updateRoomControls(currentGameState); // This will re-evaluate button states
+        updateRoomControls(currentGameState);
     }
 });
 socket.on('gameOver', (results) => {
