@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KK 在线纸牌</title>
-    <link rel="stylesheet" href="style.css?v=1.0.4"> <!-- 版本号递增 -->
+    <link rel="stylesheet" href="style.css?v=1.0.5"> <!-- 版本号递增 -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#333333"/> <!-- 主题色改为深色 -->
+    <meta name="theme-color" content="#4a4a4a"/> <!-- 主题色改为新的背景色 -->
     <link rel="apple-touch-icon" href="/images/icon-192x192.png">
 </head>
 <body>
@@ -46,20 +46,16 @@
         <p id="lobbyMessage" class="message"></p>
     </div>
 
-    <div id="roomView" class="view hidden-view view-flex"> <!-- 确保是flex布局 -->
-        <!-- 游戏区域现在是主要内容，信息条和状态条绝对定位于此内部 -->
+    <div id="roomView" class="view hidden-view view-flex">
         <div id="gameArea">
-            <!-- 整合的信息条 -->
             <div id="gameInfoBar">
                 <div class="room-name-id">
                     <!-- JS会填充这里 -->
                 </div>
-                <!-- 准备按钮也可以考虑放在这里，如果等待阶段需要 -->
                 <button id="readyButton" class="hidden-view view-inline-block">准备</button>
                 <button id="leaveRoomButton">离开</button>
             </div>
 
-            <!-- 玩家区域布局保持不变 -->
             <div id="playerAreaTop" class="playerArea">
                 <div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div>
                 <div class="playerInfo"></div>
@@ -84,15 +80,18 @@
                 <div class="playerHeader"><span class="playerName"></span><span class="playerRole"></span></div>
                 <div class="playerInfo"></div>
                 <div id="myHand" class="playerCards myHand"></div>
-                <div id="myActions" class="my-actions hidden-view">
-                    <button id="playSelectedCardsButton" disabled>出 牌</button>
-                    <button id="passTurnButton" disabled>不要</button>
-                    <button id="hintButton">提示</button>
-                    <button id="sortHandButton">整理</button>
+                <!-- 新的按钮容器 -->
+                <div class="my-actions-container hidden-view"> <!-- 初始隐藏 -->
+                    <div class="actions-group left-actions">
+                        <button id="sortHandButton" title="整理手牌">整理</button>
+                        <button id="hintButton" title="提示">提示</button>
+                    </div>
+                    <div class="actions-group right-actions">
+                        <button id="passTurnButton" title="不要">不要</button>
+                        <button id="playSelectedCardsButton" title="出牌" disabled>出牌</button>
+                    </div>
                 </div>
             </div>
-
-            <!-- 整合的游戏状态显示 -->
             <div id="gameStatusDisplay">等待玩家...</div>
         </div>
 
@@ -107,6 +106,6 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="client.js?v=1.0.4"></script> <!-- 版本号递增 -->
+    <script src="client.js?v=1.0.5"></script>
 </body>
 </html>
