@@ -36,7 +36,7 @@ const lobbyUsername = document.getElementById('lobbyUsername');
 const createRoomNameInput = document.getElementById('createRoomName');
 const createRoomPasswordInput = document.getElementById('createRoomPassword');
 const createRoomButton = document.getElementById('createRoomButton');
-const roomListEl = document.getElementById('roomList'); // Renamed to avoid conflict
+const roomListEl = document.getElementById('roomList');
 const lobbyMessage = document.getElementById('lobbyMessage');
 const centerPileArea = document.getElementById('centerPileArea');
 const lastHandTypeDisplay = document.getElementById('lastHandTypeDisplay');
@@ -110,7 +110,7 @@ function clearMessages() {
     });
     const gameStatusDisp = document.getElementById('gameStatusDisplay');
     if (gameStatusDisp && !gameStatusDisp.classList.contains('error') && !gameStatusDisp.classList.contains('success') && currentView !== 'roomView' && currentView !== 'gameOverOverlay') {
-        // gameStatusDisp.textContent = '';
+        // gameStatusDisp.textContent = ''; // Let renderRoomView update it
     }
 }
 function getSuitSymbol(suit) { switch (suit?.toUpperCase()) { case 'H': return '♥'; case 'D': return '♦'; case 'C': return '♣'; case 'S': return '♠'; default: return '?'; } }
@@ -162,7 +162,7 @@ function renderRoomList(rooms) {
     });
  }
 
-// --- Partial Update Functions (DEFINITIONS MUST BE HERE, BEFORE renderRoomView if called from there) ---
+// --- Partial Update Functions (DEFINITIONS MUST BE HERE) ---
 function updateGameInfoBarDOM(state) {
     const gameInfoBar = document.getElementById('gameInfoBar');
     if (gameInfoBar) {
@@ -296,11 +296,14 @@ function renderPlayerArea(container, playerData, isMe, state, absoluteSlot) {
         infoEl.innerHTML = infoText;
     }
     if (isMe) {
-        const readyButtonInstance = container.querySelector('#readyButton');
-        if (readyButtonInstance && state.status === 'waiting') {
-            // updateRoomControls will handle visibility and text
-        } else if (readyButtonInstance) {
-            readyButtonInstance.classList.add('hidden-view');
+        const readyButtonInstance = container.querySelector('#readyButton'); // Button is in playerHeader of selfArea
+        if (readyButtonInstance) { // Check if the button actually exists in this container
+            if (state.status === 'waiting') {
+                readyButtonInstance.classList.remove('hidden-view');
+                // updateRoomControls will handle text and class if it's called after this
+            } else {
+                readyButtonInstance.classList.add('hidden-view');
+            }
         }
     }
     if (cardsEl) renderPlayerCards(cardsEl, playerData, isMe, state.status === 'playing' && state.currentPlayerId === myUserId);
@@ -308,17 +311,18 @@ function renderPlayerArea(container, playerData, isMe, state, absoluteSlot) {
 function fanCards(cardContainer, cardElements, areaId) {
     const numCards = cardElements.length;
     if (numCards === 0) return;
-    const cardWidth = 60;
-    if (areaId === 'playerAreaBottom') {
+    const cardWidth = 60; // Ensure this matches CSS if it affects calculations
+    if (areaId === 'playerAreaBottom') { // My hand
         cardElements.forEach((card, i) => {
             card.style.zIndex = i;
         });
-    } else {
-        let maxAngle = 25;
+    } else { // Opponent hands
+        let maxAngle = 20;
         let angleStep = numCards > 1 ? maxAngle / (numCards - 1) : 0;
-        angleStep = Math.min(angleStep, 4);
+        angleStep = Math.min(angleStep, 3);
         let initialRotation = -((numCards - 1) * angleStep) / 2;
-        let offsetMultiplier = 1.8;
+        let offsetMultiplier = 1.5;
+
         cardElements.forEach((card, i) => {
             const rotation = initialRotation + i * angleStep;
             let tx = "0px", ty = "0px";
@@ -328,12 +332,14 @@ function fanCards(cardContainer, cardElements, areaId) {
                 card.style.transform = `translateY(${ty}) rotate(${rotation}deg)`;
                 card.style.zIndex = numCards - i;
             } else if (areaId === 'playerAreaLeft') {
-                tx = `${i * offsetMultiplier}px`;
-                card.style.transform = `translateX(${tx}) rotate(${rotation}deg) translateY(-50%)`;
+                tx = `${i * offsetMultiplier * 0.8}px`;
+                ty = `${(i - numCards/2) * offsetMultiplier * 0.1}px`;
+                card.style.transform = `translateX(${tx}) translateY(calc(-50% + ${ty})) rotate(${rotation}deg)`;
                 card.style.zIndex = numCards - i;
             } else if (areaId === 'playerAreaRight') {
-                tx = `${-i * offsetMultiplier}px`;
-                card.style.transform = `translateX(${tx}) rotate(${rotation}deg) translateY(-50%)`;
+                tx = `${-i * offsetMultiplier * 0.8}px`;
+                ty = `${(i - numCards/2) * offsetMultiplier * 0.1}px`;
+                card.style.transform = `translateX(${tx}) translateY(calc(-50% + ${ty})) rotate(${rotation}deg)`;
                 card.style.zIndex = i;
             }
         });
@@ -361,21 +367,23 @@ function renderCard(cardData, isHidden, isCenterPileCard = false) {
     const cardDiv = document.createElement('div');
     cardDiv.classList.add('card');
     if (isCenterPileCard) {
-        cardDiv.style.position = 'relative';
-        cardDiv.style.margin = '3px';
+        cardDiv.style.position = 'relative'; // Center pile cards are part of flex layout
+        cardDiv.style.margin = '2px';
     }
+    // My cards are handled by #playerAreaBottom .playerCards .card in CSS for position:relative
+
     if (isHidden || !cardData) {
-        cardDiv.classList.add('hidden');
+        cardDiv.classList.add('hidden'); // Applies card-back.png via CSS
     } else {
         cardDiv.classList.add('visible');
         const filename = getCardImageFilename(cardData);
         if (filename) {
             cardDiv.style.backgroundImage = `url('/images/cards/${filename}')`;
-            cardDiv.dataset.suit = cardData.suit;
+            cardDiv.dataset.suit = cardData.suit; // Keep data attributes for logic if needed
             cardDiv.dataset.rank = cardData.rank;
-        } else {
+        } else { // Fallback to text if image name fails
             cardDiv.textContent = `${cardData.rank}${getSuitSymbol(cardData.suit)}`;
-            cardDiv.classList.add(getSuitClass(cardData.suit));
+            cardDiv.classList.add(getSuitClass(cardData.suit)); // Add color class for text fallback
             console.error("Failed to generate filename for card:", cardData);
         }
     }
@@ -409,12 +417,12 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
                 cardElements.push(cardElement);
             });
         }
-    } else {
+    } else { // Opponent's hand
         if (playerData.finished) {
             container.innerHTML = '<span style="color:#888; font-style:italic;">已出完</span>';
         } else if (playerData.handCount > 0) {
             for (let i = 0; i < playerData.handCount; i++) {
-                const cardElement = renderCard(null, true);
+                const cardElement = renderCard(null, true); // Render card back
                 container.appendChild(cardElement);
                 cardElements.push(cardElement);
             }
@@ -441,6 +449,7 @@ function updateRoomControls(state) {
     if (!state || !myUserId) return;
     const myPlayerInState = state.players.find(p => p.userId === myUserId);
     if (!myPlayerInState) return;
+
     const readyButtonInstance = document.getElementById('readyButton');
     if (readyButtonInstance) {
         if (state.status === 'waiting') {
@@ -452,6 +461,7 @@ function updateRoomControls(state) {
             readyButtonInstance.classList.add('hidden-view');
         }
     }
+
     const actionsContainer = document.querySelector('#playerAreaBottom .my-actions-container');
     if (actionsContainer) {
         if (state.status === 'playing' && state.currentPlayerId === myUserId && !myPlayerInState.finished) {
