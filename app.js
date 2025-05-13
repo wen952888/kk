@@ -1,5 +1,5 @@
 // app.js
-require('dotenv').config(); // Load .env file first
+require('dotenv').config();
 
 const express = require('express');
 const http = require('http');
@@ -9,65 +9,71 @@ const { Game } = require('./server/game');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
-    pingInterval: 10000, // Send a ping every 10 seconds
-    pingTimeout: 5000,   // Wait 5 seconds for a pong, then disconnect
-    // cors: { origin: "*" } // 如果客户端和服务器不同源，可能需要配置 CORS
+    pingInterval: 10000,
+    pingTimeout: 5000,
 });
 
-const PORT = process.env.PORT || 3001; // Fallback port
+const PORT = process.env.PORT || 3001;
 
-console.log("--- Startup Configuration ---");
+console.log("--- [SERVER] Startup Configuration ---");
 console.log("Initial process.env.PORT:", process.env.PORT);
 console.log("NODE_ENV:", process.env.NODE_ENV);
 console.log(`Effective port chosen for listening: ${PORT}`);
-console.log("-----------------------------");
+console.log("------------------------------------");
 
 app.use(express.static('public'));
 
-let game = new Game(); // Initialize a single game instance
+let game = new Game();
 
 io.on('connection', (socket) => {
-    console.log(`Player connected: ${socket.id}`);
+    console.log(`[SERVER] Player connected: ${socket.id}`);
 
     const joinResult = game.addPlayer(socket.id);
+    console.log(`[SERVER] Join result for ${socket.id}:`, joinResult);
+
 
     if (!joinResult.success) {
         socket.emit('game_error', { message: joinResult.message });
-        // Consider not disconnecting immediately, let client decide or show message
-        // socket.disconnect(true);
+        // Consider if disconnecting here is always right, or if client should see "game full"
+        // socket.disconnect(true); 
         return;
     }
-    // Announce new player or reconnected player
-    io.emit('player_list_update', game.getPlayerListInfo()); // Send updated player list to all
-    broadcastGameState(socket.id); // Send full state to new player, partial to others if needed
+    
+    io.emit('player_list_update', game.getPlayerListInfo());
+    broadcastGameState(socket.id); // Send full state to new player
 
     socket.emit('connection_ack', { playerId: socket.id, message: "Successfully connected to game server." });
 
 
     socket.on('startGame', () => {
-        if (!game.isGameStarted) {
-            // Simplification: let any connected player try to start
-            // More robust: check if socket.id is a current player, and if enough players
-            const player = game.players.find(p => p.id === socket.id && p.connected);
-            if (!player) {
-                socket.emit('game_error', {message: "You are not part of this game to start it."});
-                return;
-            }
+        console.log(`[SERVER] startGame request from ${socket.id}`);
+        // Use game's method to find player in slots
+        const playerSlot = game.getPlayerById(socket.id); 
+        
+        if (!playerSlot || !playerSlot.connected) {
+            socket.emit('game_error', {message: "You are not recognized as an active player in this game to start it."});
+            console.log(`[SERVER] startGame denied for ${socket.id}: not found or not connected.`);
+            return;
+        }
 
+        if (!game.isGameStarted) {
             const startResult = game.startGame();
             if (startResult.success) {
-                console.log("Game started by", socket.id);
-                io.emit('game_started', game.getGameStartInfo()); // Announce game start
+                console.log(`[SERVER] Game started by ${playerSlot.displayName} (${socket.id})`);
+                io.emit('game_started', game.getGameStartInfo());
                 broadcastFullGameStateToAll();
             } else {
                 socket.emit('game_error', { message: startResult.message });
+                 console.log(`[SERVER] startGame failed for ${socket.id}: ${startResult.message}`);
             }
         } else {
             socket.emit('game_error', { message: "Game has already started." });
+            console.log(`[SERVER] startGame denied for ${socket.id}: game already started.`);
         }
     });
 
     socket.on('playCards', (cardIds) => {
+        console.log(`[SERVER] playCards request from ${socket.id} with cards:`, cardIds);
         if (!game.isGameStarted) {
             socket.emit('game_error', { message: "Game has not started yet." });
             return;
@@ -77,16 +83,16 @@ io.on('connection', (socket) => {
             broadcastFullGameStateToAll();
             if (result.roundOver) {
                 io.emit('round_over', { winner: result.winner, message: `Player ${result.winner} won the round!`});
-                // Here you could reset for a new round or end game. For now, it just announces.
-                // game.resetForNewRound(); // Example
-                // broadcastFullGameStateToAll();
+                console.log(`[SERVER] Round over. Winner: ${result.winner}`);
             }
         } else {
             socket.emit('game_error', { message: result.message });
+            console.log(`[SERVER] playCards failed for ${socket.id}: ${result.message}`);
         }
     });
 
     socket.on('passTurn', () => {
+        console.log(`[SERVER] passTurn request from ${socket.id}`);
         if (!game.isGameStarted) {
             socket.emit('game_error', { message: "Game has not started yet." });
             return;
@@ -96,18 +102,26 @@ io.on('connection', (socket) => {
             broadcastFullGameStateToAll();
         } else {
             socket.emit('game_error', { message: result.message });
+            console.log(`[SERVER] passTurn failed for ${socket.id}: ${result.message}`);
         }
     });
 
-    socket.on('requestNewGame', () => { // Client wants to start a new game after one finished
-        if (game.isRoundOver || !game.isGameStarted) { // Allow new game if round is over or not started
-            console.log(`Player ${socket.id} requested a new game.`);
-            game = new Game(); // Reset to a fresh game instance
-            // Re-add all currently connected sockets as players to the new game
+    socket.on('requestNewGame', () => {
+        console.log(`[SERVER] requestNewGame from ${socket.id}`);
+        const playerSlot = game.getPlayerById(socket.id);
+        if (!playerSlot || !playerSlot.connected) {
+             socket.emit('game_error', {message: "Only active players can request a new game."});
+             return;
+        }
+
+        if (game.isRoundOver || !game.isGameStarted) {
+            console.log(`[SERVER] Player ${playerSlot.displayName} requested a new game. Resetting.`);
+            game = new Game(); 
             const connectedSocketIds = Array.from(io.sockets.sockets.keys());
             connectedSocketIds.forEach(id => {
-                if (io.sockets.sockets.get(id)) { // Check if socket still exists
-                     game.addPlayer(id); // Add them to the new game
+                const sock = io.sockets.sockets.get(id);
+                if (sock && sock.connected) { // Check if socket still exists and is connected
+                     game.addPlayer(id);
                 }
             });
             io.emit('game_reset_for_new', { message: "A new game is being set up." });
@@ -119,33 +133,36 @@ io.on('connection', (socket) => {
 
 
     socket.on('disconnect', (reason) => {
-        console.log(`Player disconnected: ${socket.id}. Reason: ${reason}`);
-        const playerWhoLeft = game.getPlayerById(socket.id);
+        console.log(`[SERVER] Player disconnected: ${socket.id}. Reason: ${reason}`);
+        const playerWhoLeft = game.getPlayerById(socket.id); // Get details before removing
         game.removePlayer(socket.id);
 
-        io.emit('player_list_update', game.getPlayerListInfo()); // Update player list for all
+        io.emit('player_list_update', game.getPlayerListInfo());
 
-        if (playerWhoLeft && game.isGameStarted) {
-            // If game was started and a player leaves, broadcast updated state
+        if (playerWhoLeft && playerWhoLeft.connected === false && game.isGameStarted) { // Check if player was marked disconnected by game.removePlayer
             broadcastFullGameStateToAll();
-            // Check if game can continue
-            if (game.players.filter(p => p.connected && p.hand.length > 0).length < 2 && game.players.length > 0) { // Assuming min 2 players
+            if (game.players.filter(p => p.connected && p.hand.length > 0).length < 2 && game.playerSlots.some(s => s.playerId !== null)) {
                 game.endGameDueToDisconnection();
-                io.emit('game_ended_disconnect', { message: "Game ended due to too many disconnections." });
-                broadcastFullGameStateToAll(); // Send final state
+                io.emit('game_ended_disconnect', { message: "Game ended: not enough players." });
+                broadcastFullGameStateToAll();
+                console.log(`[SERVER] Game ended due to disconnections after ${playerWhoLeft.displayName} left.`);
             }
-        } else if (!game.isGameStarted && game.players.length === 0 && game.playerSlots.every(s => s.playerId === null)) {
-            // If game wasn't started and all player slots are now empty (everyone left before start)
-            // This state is fine, game instance is ready for new players.
-            // No need to create `new Game()` here unless specific reset logic is needed.
-            console.log("All players left before game start. Game instance ready for new players.");
+        } else if (!game.isGameStarted && game.playerSlots.every(s => s.playerId === null || !s.connected)) {
+            console.log("[SERVER] All players left or slots are empty before game start. Game instance is ready.");
+            // If you want to fully reset to a "pristine" state if all players leave before start:
+            // if (game.playerSlots.every(s => !s.connected)) {
+            //     console.log("[SERVER] All players disconnected before start, creating fresh Game instance.");
+            //     game = new Game();
+            // }
         }
     });
 });
 
-// Broadcasts the full game state to each player, tailored for them
 function broadcastFullGameStateToAll() {
-    if (!game || !game.playerSlots) return;
+    if (!game || !game.playerSlots) {
+        console.warn("[SERVER] broadcastFullGameStateToAll called but game or playerSlots is undefined.");
+        return;
+    }
     game.playerSlots.forEach(slot => {
         if (slot.playerId && slot.connected) {
             const Ksocket = io.sockets.sockets.get(slot.playerId);
@@ -154,40 +171,52 @@ function broadcastFullGameStateToAll() {
             }
         }
     });
-     // If there are spectators, you might send a generic state to them
 }
 
-// Broadcasts tailored game state, can be specific to one or all
 function broadcastGameState(targetSocketId = null) {
-    if (!game || !game.playerSlots) return;
+    if (!game || !game.playerSlots) {
+         console.warn("[SERVER] broadcastGameState called but game or playerSlots is undefined.");
+        return;
+    }
     if (targetSocketId) {
         const Ksocket = io.sockets.sockets.get(targetSocketId);
         if (Ksocket) {
             Ksocket.emit('gameState', game.getGameStateForPlayer(targetSocketId));
+        } else {
+            // If target socket not found but we have a slot for them (e.g. they just disconnected)
+            const slot = game.getPlayerById(targetSocketId);
+            if (slot && !slot.connected) {
+                console.log(`[SERVER] broadcastGameState: Target ${targetSocketId} (Player ${slot.displayName}) not found/disconnected. Not sending gameState.`);
+            }
         }
     } else {
         broadcastFullGameStateToAll();
     }
 }
 
-
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running and listening on 0.0.0.0:${PORT}`);
-    console.log(`On production, access via your assigned domain/URL.`);
+    console.log(`[SERVER] Server running and listening on 0.0.0.0:${PORT}`);
+    console.log(`[SERVER] On production, access via your assigned domain/URL.`);
 });
 
+// Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    process.exit(0);
+  console.log('[SERVER] SIGTERM signal received: closing HTTP server');
+  io.close(() => { // Close socket.io connections first
+    console.log('[SERVER] Socket.IO connections closed.');
+    server.close(() => {
+        console.log('[SERVER] HTTP server closed');
+        process.exit(0);
+    });
   });
 });
-
 process.on('SIGINT', () => {
-  console.log('SIGINT signal received: closing HTTP server (Ctrl+C)');
-  server.close(() => {
-    console.log('HTTP server closed');
-    process.exit(0);
+  console.log('[SERVER] SIGINT signal received (Ctrl+C): closing HTTP server');
+  io.close(() => {
+    console.log('[SERVER] Socket.IO connections closed.');
+    server.close(() => {
+        console.log('[SERVER] HTTP server closed');
+        process.exit(0);
+    });
   });
 });
