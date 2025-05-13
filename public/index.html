@@ -1,55 +1,100 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Big Two Game</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <title>KK 在线纸牌</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="game-container">
-        <div id="game-header">
-            <h1>锄大地 (Big Two)</h1>
-            <p id="connection-status">Connecting...</p>
-            <p id="my-player-info"></p>
-        </div>
 
-        <div id="players-display">
-            <!-- Player slots will be rendered here -->
-        </div>
-
-        <div id="table-area">
-            <h2>牌桌 (Table)</h2>
-            <div id="last-played-hand" class="card-area">
-                <!-- Last played hand cards -->
-            </div>
-            <p id="last-played-info">上一手: N/A</p>
-        </div>
-
-        <div id="player-hand-area">
-            <h2>你的手牌 (Your Hand)</h2>
-            <div id="my-hand" class="card-area">
-                <!-- Player's cards will be rendered here -->
-            </div>
-            <div id="actions">
-                <button id="play-button" disabled>出牌 (Play)</button>
-                <button id="pass-button" disabled>过 (Pass)</button>
-            </div>
-        </div>
-        
-        <div id="game-controls-and-log">
-            <div id="game-controls">
-                <button id="start-game-button" style="display: none;">开始游戏 (Start Game)</button>
-                <button id="new-game-button" style="display: none;">新一局 (New Game)</button>
-            </div>
-            <h2>游戏日志 (Game Log)</h2>
-            <p id="game-status">等待玩家...</p>
-            <ul id="log-list"></ul>
-        </div>
-         <div id="error-message" style="color: red; margin-top: 10px;"></div>
+    <div id="loadingView">
+        <p>连接中...</p>
     </div>
 
+    <!-- Login/Register View -->
+    <div id="loginRegisterView" class="view" style="display: none;">
+        <h2>登录 / 注册</h2>
+        <div id="authFormContainer">
+            <div class="formSection">
+                <h3>注册</h3>
+                <input type="tel" id="regPhone" placeholder="手机号" autocomplete="username">
+                <input type="password" id="regPassword" placeholder="密码 (至少4位)" autocomplete="new-password">
+                <button id="registerButton">注册</button>
+            </div>
+            <div class="formSection">
+                <h3>登录</h3>
+                <input type="tel" id="loginPhone" placeholder="手机号" autocomplete="username">
+                <input type="password" id="loginPassword" placeholder="密码" autocomplete="current-password">
+                <button id="loginButton">登录</button>
+            </div>
+        </div>
+        <p id="authMessage" class="message"></p>
+    </div>
+
+    <!-- Lobby View -->
+    <div id="lobbyView" class="view" style="display: none;">
+        <h2>游戏大厅</h2>
+        <p>欢迎, <span id="lobbyUsername"></span>!</p>
+        <div id="createRoomSection">
+            <h3>创建房间</h3>
+            <input type="text" id="createRoomName" placeholder="房间名称">
+            <input type="password" id="createRoomPassword" placeholder="房间密码 (可选)">
+            <button id="createRoomButton">创建</button>
+        </div>
+        <h3>加入房间</h3>
+        <div id="roomList">
+            <!-- Room list items will be populated here -->
+            <p>正在加载房间列表...</p>
+        </div>
+        <p id="lobbyMessage" class="message"></p>
+    </div>
+
+    <!-- Room/Game View -->
+    <div id="roomView" class="view" style="display: none;">
+        <h2 id="roomNameDisplay">房间名称</h2>
+        <p id="roomStatusDisplay">等待玩家...</p>
+        <button id="leaveRoomButton">离开房间</button>
+
+        <div id="gameArea">
+            <!-- Player Areas -->
+            <div id="playerAreaTop" class="playerArea">
+                <div class="playerName"></div>
+                <div class="playerInfo"></div>
+                <div class="playerCards opponentHand"></div>
+            </div>
+            <div id="playerAreaLeft" class="playerArea">
+                 <div class="playerName"></div>
+                 <div class="playerInfo"></div>
+                 <div class="playerCards opponentHand"></div>
+            </div>
+            <div id="centerArea">
+                <p>中心牌堆:</p>
+                <div id="centerPileArea"></div>
+            </div>
+            <div id="playerAreaRight" class="playerArea">
+                 <div class="playerName"></div>
+                 <div class="playerInfo"></div>
+                 <div class="playerCards opponentHand"></div>
+            </div>
+            <div id="playerAreaBottom" class="playerArea selfArea">
+                <div class="playerName"></div>
+                <div class="playerInfo"></div>
+                <div id="myHand" class="playerCards myHand"></div>
+            </div>
+        </div>
+
+        <div id="roomControls">
+             <button id="readyButton" style="display: none;">准备</button>
+             <p id="gameMessage" class="message"></p>
+        </div>
+
+    </div>
+
+
+    <!-- Socket.IO Client Library -->
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/client.js"></script>
+    <!-- Your Client-Side Logic -->
+    <script src="client.js"></script>
 </body>
 </html>
