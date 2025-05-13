@@ -36,7 +36,7 @@ const lobbyUsername = document.getElementById('lobbyUsername');
 const createRoomNameInput = document.getElementById('createRoomName');
 const createRoomPasswordInput = document.getElementById('createRoomPassword');
 const createRoomButton = document.getElementById('createRoomButton');
-const roomListEl = document.getElementById('roomList');
+const roomListEl = document.getElementById('roomList'); // Renamed to avoid conflict
 const lobbyMessage = document.getElementById('lobbyMessage');
 const centerPileArea = document.getElementById('centerPileArea');
 const lastHandTypeDisplay = document.getElementById('lastHandTypeDisplay');
@@ -56,8 +56,8 @@ const gameOverReason = document.getElementById('gameOverReason');
 const gameOverScores = document.getElementById('gameOverScores');
 const backToLobbyButton = document.getElementById('backToLobbyButton');
 
-const ALARM_ICON_SRC = '/images/alarm-icon.svg'; // 确保你有这个闹钟图标
-const AVATAR_PATHS = [ // 准备4个不同的头像路径
+const ALARM_ICON_SRC = '/images/alarm-icon.svg';
+const AVATAR_PATHS = [
     '/images/avatar-slot-0.png',
     '/images/avatar-slot-1.png',
     '/images/avatar-slot-2.png',
@@ -162,7 +162,7 @@ function renderRoomList(rooms) {
     });
  }
 
-// --- Partial Update Functions (DEFINITIONS MUST BE HERE) ---
+// --- Partial Update Functions (DEFINITIONS MUST BE HERE, BEFORE renderRoomView if called from there) ---
 function updateGameInfoBarDOM(state) {
     const gameInfoBar = document.getElementById('gameInfoBar');
     if (gameInfoBar) {
@@ -217,8 +217,8 @@ function renderRoomView(state) {
     }
     console.log("Executing FULL renderRoomView based on new state:", JSON.parse(JSON.stringify(state)));
 
-    updateGameInfoBarDOM(state); // Call the defined function
-    updateGameStatusDisplayDOM(state); // Call the defined function
+    updateGameInfoBarDOM(state);
+    updateGameStatusDisplayDOM(state);
 
     Object.values(playerAreas).forEach(clearPlayerAreaDOM);
     const myPlayer = state.players.find(p => p.userId === myUserId);
@@ -234,7 +234,7 @@ function renderRoomView(state) {
         else console.warn(`No target area for relative slot ${relativeSlot} (Player slot ${player.slot})`);
     });
 
-    renderCenterPileDOM(state); // Call the defined function
+    renderCenterPileDOM(state);
     updateRoomControls(state);
 
     if (state.currentPlayerId !== myUserId || state.status !== 'playing') {
@@ -253,10 +253,10 @@ function clearPlayerAreaDOM(area) {
         avatarEl.innerHTML = '';
         avatarEl.style.backgroundImage = '';
      }
-     if (nameEl) nameEl.textContent = '空位';
-     if (roleEl) roleEl.textContent = '';
-     if (infoEl) infoEl.innerHTML = '';
-     if (cardsEl) cardsEl.innerHTML = '';
+     if (nameEl) nameEl.textContent = (area.id === 'playerAreaBottom' && myUsername) ? myUsername + ' (你)' : '空位';
+     if (roleEl) roleEl.textContent = '[?]';
+     if (infoEl) infoEl.innerHTML = '总分: 0';
+     if (cardsEl) cardsEl.innerHTML = '<span style="color:#888; font-style:italic;">- 无手牌 -</span>';
      if (handCountEl) handCountEl.remove();
      if (area.id === 'playerAreaBottom') {
         const actionsContainer = area.querySelector('.my-actions-container');
@@ -296,9 +296,9 @@ function renderPlayerArea(container, playerData, isMe, state, absoluteSlot) {
         infoEl.innerHTML = infoText;
     }
     if (isMe) {
-        const readyButtonInstance = container.querySelector('#readyButton'); // Button is in playerHeader of selfArea
+        const readyButtonInstance = container.querySelector('#readyButton');
         if (readyButtonInstance && state.status === 'waiting') {
-             // updateRoomControls will handle visibility and text
+            // updateRoomControls will handle visibility and text
         } else if (readyButtonInstance) {
             readyButtonInstance.classList.add('hidden-view');
         }
@@ -347,8 +347,6 @@ function getCardImageFilename(cardData) {
     else if (rankStr === 'q') rankStr = 'queen';
     else if (rankStr === 'k') rankStr = 'king';
     else if (rankStr === 'a') rankStr = 'ace';
-    // For ranks 2-9, rankStr is already the digit.
-
     let suitStr = '';
     switch (cardData.suit.toUpperCase()) {
         case 'S': suitStr = 'spades'; break;
@@ -367,16 +365,15 @@ function renderCard(cardData, isHidden, isCenterPileCard = false) {
         cardDiv.style.margin = '3px';
     }
     if (isHidden || !cardData) {
-        cardDiv.classList.add('hidden'); // Applies card-back.png via CSS
+        cardDiv.classList.add('hidden');
     } else {
         cardDiv.classList.add('visible');
         const filename = getCardImageFilename(cardData);
         if (filename) {
             cardDiv.style.backgroundImage = `url('/images/cards/${filename}')`;
-            // CSS already has background-size: contain; background-repeat: no-repeat; background-position: center;
-            cardDiv.dataset.suit = cardData.suit; // Keep data attributes for logic if needed
+            cardDiv.dataset.suit = cardData.suit;
             cardDiv.dataset.rank = cardData.rank;
-        } else { // Fallback to text if image name fails
+        } else {
             cardDiv.textContent = `${cardData.rank}${getSuitSymbol(cardData.suit)}`;
             cardDiv.classList.add(getSuitClass(cardData.suit));
             console.error("Failed to generate filename for card:", cardData);
@@ -476,8 +473,6 @@ function updateRoomControls(state) {
     }
 }
 
-// --- (Event Handlers: handleRegister to DOMContentLoaded - REMAINDER OF THE FILE) ---
-// (This section should be IDENTICAL to the previous full client.js version I provided)
 function handleRegister() {
     const phone = regPhoneInput.value.trim(); const password = regPasswordInput.value;
     if (!phone || !password) { displayMessage(authMessage, '请输入手机号和密码。', true); return; }
