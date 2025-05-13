@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
@@ -9,7 +10,9 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = process.env.PORT || 34709; // Use environment variable or default
+app.disable('x-powered-by'); // <<< 添加这一行
+
+const PORT = process.env.PORT || 34709;
 
 console.log("--- [SERVER] Startup Configuration ---");
 console.log(`Initial process.env.PORT: ${process.env.PORT}`);
@@ -17,7 +20,6 @@ const nodeEnv = process.env.NODE_ENV || 'development';
 console.log(`NODE_ENV: ${nodeEnv}`);
 console.log(`Effective port chosen for listening: ${PORT}`);
 console.log("------------------------------------");
-
 
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -29,20 +31,24 @@ authManager.loadUsers();
 io.on('connection', (socket) => {
     console.log(`[SERVER] Client connected: ${socket.id}`);
 
-    // Initialize managers for this socket connection
     authManager.init(socket);
-    roomManager.init(socket, io); // Pass io to roomManager for broadcasting
+    roomManager.init(socket, io);
 
-    // Handle disconnection
     socket.on('disconnect', (reason) => {
         console.log(`[SERVER] Client disconnected: ${socket.id}. Reason: ${reason}`);
-        roomManager.handleDisconnect(socket); // Let roomManager handle cleanup
+        roomManager.handleDisconnect(socket);
     });
 
-     socket.emit('roomListUpdate', roomManager.getPublicRoomList());
+    // Send initial room list (can be moved to after auth if preferred)
+    socket.emit('roomListUpdate', roomManager.getPublicRoomList());
 });
 
-// Start the server
+// Optional: Explicit route for index.html with correct Content-Type
+// app.get('/', (req, res) => {
+//     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+//     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// });
+
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`[SERVER] Server running and listening on 0.0.0.0:${PORT}`);
     if (nodeEnv === 'production') {
@@ -50,7 +56,6 @@ server.listen(PORT, '0.0.0.0', () => {
     }
 });
 
-// Graceful shutdown
 process.on('SIGINT', () => {
     console.log('[SERVER] Shutting down...');
     server.close(() => {
