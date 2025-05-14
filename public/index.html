@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KK 在线纸牌</title>
-    <link rel="stylesheet" href="style.css?v=1.0.11"> <!-- 版本号递增 -->
+    <link rel="stylesheet" href="style.css?v=1.0.12"> <!-- 版本号递增 -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#e0e0e0"/>
     <link rel="apple-touch-icon" href="/images/icon-192x192.png">
@@ -84,26 +84,32 @@
             <!-- 自己的区域 (最下方) -->
             <div id="playerAreaBottom" class="playerArea selfArea">
                 <div class="self-top-info">
-                    <div class="playerHeader">
-                        <div class="player-avatar"></div>
-                        <div class="player-details">
-                            <span class="playerName">你</span><span class="playerRole">[?]</span>
-                        </div>
-                    </div>
-                    <div class="playerInfo">总分: 0</div>
-                    <button id="readyButton" class="hidden-view">准备</button>
-                </div>
-                <div id="myHand" class="playerCards myHand"></div>
-                <div class="my-actions-container hidden-view">
-                    <div class="actions-group left-actions">
+                    <!-- 左侧操作按钮 -->
+                    <div class="actions-group left-actions my-actions-container hidden-view">
                         <button id="sortHandButton" title="整理">整理</button>
                         <button id="hintButton" title="提示">提示</button>
                     </div>
-                    <div class="actions-group right-actions">
+
+                    <!-- 中间玩家信息和准备按钮 -->
+                    <div class="player-main-info-container">
+                        <div class="playerHeader">
+                            <div class="player-avatar"></div>
+                            <div class="player-details">
+                                <span class="playerName">你</span><span class="playerRole">[?]</span>
+                            </div>
+                        </div>
+                        <div class="playerInfo">总分: 0</div>
+                        <button id="readyButton" class="hidden-view">准备</button>
+                    </div>
+
+                    <!-- 右侧操作按钮 -->
+                    <div class="actions-group right-actions my-actions-container hidden-view">
                         <button id="passTurnButton" title="不要">不要</button>
                         <button id="playSelectedCardsButton" title="出牌" disabled>出牌</button>
                     </div>
                 </div>
+                <div id="myHand" class="playerCards myHand"></div>
+                <!-- 原本的 my-actions-container 已移到上方，并合并了类名 -->
             </div>
 
             <!-- 游戏状态显示条 -->
@@ -121,6 +127,6 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="client.js?v=1.0.11"></script>
+    <script src="client.js?v=1.0.12"></script> <!-- 确保client.js版本号也更新 -->
 </body>
 </html>
