@@ -1,4 +1,7 @@
 // public/client.js
+// --- (所有之前的 const, let, DOM Element declarations, utility functions - 保持不变) ---
+// (我将直接粘贴 fanCards 和 renderPlayerCards 的修改版本，其余部分假设与您上一个完整版 client.js 相同)
+
 const socket = io({
     reconnectionAttempts: 5,
     reconnectionDelay: 3000
@@ -93,24 +96,35 @@ function fanCards(cardContainer, cardElements, areaId) {
     if (areaId === 'playerAreaBottom') { // My hand
         cardElements.forEach((card, i) => {
             card.style.zIndex = i;
-            card.style.transform = ''; // CSS handles overlap via negative margin
+            // Reset any JS-applied transforms, let CSS handle overlap and hover/selected states
+            card.style.transform = '';
             card.style.left = '';
             card.style.top = '';
+            // CSS handles negative margin for overlap:
+            // #myHand.myHand .card { margin-left: -110px; }
+            // #myHand.myHand .card:first-child { margin-left: 0; }
         });
     } else { // Opponent hands - Stacked deck effect
         const offsetXPerCard = 1;
         const offsetYPerCard = 1;
-        const maxVisibleStackedCards = Math.min(numCards, 5);
+        // Show distinct offset for a few cards, then stack perfectly
+        const maxVisibleStackedCards = Math.min(numCards, 3); // Adjust for visual preference
 
         cardElements.forEach((card, i) => {
-            // position:absolute is now handled by CSS (.opponentHand .card)
+            // CSS should set position: absolute for .opponentHand .card
+            let currentOffsetX = 0;
+            let currentOffsetY = 0;
+
             if (i < maxVisibleStackedCards) {
-                card.style.transform = `translate(${i * offsetXPerCard}px, ${i * offsetYPerCard}px)`;
-            } else {
-                card.style.transform = `translate(${(maxVisibleStackedCards -1) * offsetXPerCard}px, ${(maxVisibleStackedCards -1) * offsetYPerCard}px)`;
+                currentOffsetX = i * offsetXPerCard;
+                currentOffsetY = i * offsetYPerCard;
+            } else { // Cards beyond maxVisible stack under the last distinctly offset card
+                currentOffsetX = (maxVisibleStackedCards - 1) * offsetXPerCard;
+                currentOffsetY = (maxVisibleStackedCards - 1) * offsetYPerCard;
             }
-            card.style.zIndex = i;
-            card.style.opacity = '1';
+            card.style.transform = `translate(${currentOffsetX}px, ${currentOffsetY}px)`;
+            card.style.zIndex = i; // Card added later (higher index) is visually on top
+            card.style.opacity = '1'; // Ensure card back is visible
         });
     }
 }
@@ -119,7 +133,8 @@ function getCardImageFilename(cardData) { if (!cardData || typeof cardData.rank 
 function renderCard(cardData, isHidden, isCenterPileCard = false) { const cardDiv = document.createElement('div'); cardDiv.classList.add('card'); if (isHidden || !cardData) { cardDiv.classList.add('hidden'); } else { cardDiv.classList.add('visible'); const filename = getCardImageFilename(cardData); if (filename) { cardDiv.style.backgroundImage = `url('/images/cards/${filename}')`; cardDiv.dataset.suit = cardData.suit; cardDiv.dataset.rank = cardData.rank; } else { cardDiv.textContent = `${cardData.rank || '?'}${getSuitSymbol(cardData.suit)}`; cardDiv.classList.add(getSuitClass(cardData.suit)); console.error("Failed to generate filename for card:", cardData, "Using text fallback."); } } return cardDiv; }
 
 function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
-    container.innerHTML = '';
+    // console.log(`renderPlayerCards for ${playerData.username}, isMe: ${isMe}, hand:`, playerData.hand ? JSON.parse(JSON.stringify(playerData.hand)) : 'undefined');
+    container.innerHTML = ''; // CRITICAL: Clear previous cards to prevent ghosting/duplicates
     const cardElements = [];
 
     if (isMe) {
@@ -153,9 +168,7 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
         } else if (playerData.handCount > 0) {
             for (let i = 0; i < playerData.handCount; i++) {
                 const cardElement = renderCard(null, true, false);
-                // Add a class if CSS needs to distinguish opponent card sizes from general .card
-                // For example, if .opponentHand .card in CSS sets a smaller size.
-                // cardElement.classList.add('opponent-stack-card');
+                // CSS for .opponentHand .card should define specific smaller size
                 container.appendChild(cardElement);
                 cardElements.push(cardElement);
             }
