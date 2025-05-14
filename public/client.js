@@ -40,7 +40,7 @@ const roomListEl = document.getElementById('roomList');
 const lobbyMessage = document.getElementById('lobbyMessage');
 const centerPileArea = document.getElementById('centerPileArea');
 const lastHandTypeDisplay = document.getElementById('lastHandTypeDisplay');
-const myHandArea = document.getElementById('myHand'); // This is the direct container for user's cards
+// const myHandArea = document.getElementById('myHand'); // 全局获取myHand的方式不再推荐用于渲染，改为函数内获取
 const playSelectedCardsButton = document.getElementById('playSelectedCardsButton');
 const passTurnButton = document.getElementById('passTurnButton');
 const hintButton = document.getElementById('hintButton');
@@ -130,15 +130,29 @@ function renderCard(cardData, isHidden, isCenterPileCard = false) { const cardDi
 
 // MODIFIED renderPlayerCards - focus on clean render for self hand
 function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
+    // if (isMe) { // 减少不必要的日志
+    //     // console.groupCollapsed(`[DEBUG] renderPlayerCards for ME (${playerData.username})`);
+    //     // console.log("Hand Data for Render:", playerData.hand ? JSON.parse(JSON.stringify(playerData.hand)) : 'undefined');
+    //     // console.groupEnd();
+    // }
+
+    let targetContainer = container; // 默认使用传入的container
+
     if (isMe) {
-        // console.groupCollapsed(`[DEBUG] renderPlayerCards for ME (${playerData.username})`);
-        // console.log("Hand Data for Render:", playerData.hand ? JSON.parse(JSON.stringify(playerData.hand)) : 'undefined');
-        // console.groupEnd();
+        // **** MODIFICATION START ****
+        // 始终获取最新的DOM元素引用，以防旧引用失效或指向错误
+        targetContainer = document.getElementById('myHand');
+        if (!targetContainer) {
+            console.error("CLIENT: #myHand (self hand container) not found during renderPlayerCards!");
+            return; // 如果找不到容器，无法继续
+        }
+        // **** MODIFICATION END ****
     }
 
+
     // THOROUGHLY CLEAR THE CONTAINER
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
+    while (targetContainer.firstChild) {
+        targetContainer.removeChild(targetContainer.firstChild);
     }
 
     const cardElements = []; // This will be passed to fanCards ONLY for opponents
@@ -147,9 +161,9 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
         // My hand (playerAreaBottom's .myHand container)
         let sortedHand = playerData.hand ? [...playerData.hand] : [];
         if (playerData.finished) {
-            container.innerHTML = '<span style="color:#888; font-style:italic;">已出完</span>';
+            targetContainer.innerHTML = '<span style="color:#888; font-style:italic;">已出完</span>';
         } else if (sortedHand.length === 0) {
-            container.innerHTML = '<span style="color:#555; font-style:italic;">- 无手牌 -</span>';
+            targetContainer.innerHTML = '<span style="color:#555; font-style:italic;">- 无手牌 -</span>';
         } else {
             if (currentSortMode === 'rank') sortedHand.sort(compareSingleCardsClient);
             else if (currentSortMode === 'suit') sortedHand.sort(compareBySuitThenRank);
@@ -169,36 +183,36 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
                 } else {
                     cardElement.classList.add('disabled');
                 }
-                container.appendChild(cardElement);
+                targetContainer.appendChild(cardElement);
                 // No need to push to cardElements for self hand if fanCards isn't doing transforms for it
             });
         }
     } else { // Opponent's hand
         if (playerData.finished) {
-            container.innerHTML = '<span style="color:#888; font-style:italic;">已出完</span>';
+            targetContainer.innerHTML = '<span style="color:#888; font-style:italic;">已出完</span>';
         } else if (playerData.handCount > 0) {
             for (let i = 0; i < playerData.handCount; i++) {
                 const cardElement = renderCard(null, true, false);
-                container.appendChild(cardElement);
+                targetContainer.appendChild(cardElement);
                 cardElements.push(cardElement); // Collect for fanCards (stacking)
             }
-            let handCountEl = container.closest('.playerArea')?.querySelector('.hand-count-display');
+            let handCountEl = targetContainer.closest('.playerArea')?.querySelector('.hand-count-display');
             if (!handCountEl) {
                 handCountEl = document.createElement('div');
                 handCountEl.classList.add('hand-count-display');
-                const playerAreaEl = container.closest('.playerArea');
+                const playerAreaEl = targetContainer.closest('.playerArea');
                 if (playerAreaEl) { playerAreaEl.appendChild(handCountEl);  }
             }
             if (handCountEl) handCountEl.textContent = `${playerData.handCount} 张`;
         } else {
-            container.innerHTML = '<span style="color:#555; font-style:italic;">- 等待 -</span>';
-            let handCountEl = container.closest('.playerArea')?.querySelector('.hand-count-display');
+            targetContainer.innerHTML = '<span style="color:#555; font-style:italic;">- 等待 -</span>';
+            let handCountEl = targetContainer.closest('.playerArea')?.querySelector('.hand-count-display');
             if (handCountEl) handCountEl.remove();
         }
 
         if (cardElements.length > 0) { // Only call fanCards for opponents
             requestAnimationFrame(() => {
-                 fanCards(container, cardElements, container.closest('.playerArea')?.id);
+                 fanCards(targetContainer, cardElements, targetContainer.closest('.playerArea')?.id);
             });
         }
     }
@@ -213,14 +227,37 @@ function handleGameLeave() { if (!currentRoomId) { console.log("Not in a room to
 function handleCreateRoom() { const roomName = createRoomNameInput.value.trim(); const password = createRoomPasswordInput.value; if (!roomName) { displayMessage(lobbyMessage, '请输入房间名称。', true); return; } createRoomButton.disabled = true; socket.emit('createRoom', { roomName, password: password || null }, (response) => { createRoomButton.disabled = false; if (response.success) { currentRoomId = response.roomId; showView('roomView'); previousGameState = null; currentGameState = response.roomState; renderRoomView(response.roomState); } else { displayMessage(lobbyMessage, response.message, true); } }); }
 function joinRoom(roomId, needsPassword) { let passwordToTry = null; if (needsPassword) { passwordToTry = prompt(`房间 "${roomId}" 受密码保护，请输入密码:`, ''); if (passwordToTry === null) return; } displayMessage(lobbyMessage, `正在加入房间 ${roomId}...`, false); socket.emit('joinRoom', { roomId, password: passwordToTry }, (response) => { if (response.success) { currentRoomId = response.roomId; showView('roomView'); previousGameState = null; currentGameState = response.roomState; renderRoomView(response.roomState); displayMessage(lobbyMessage, '', false); } else { displayMessage(lobbyMessage, response.message, true); } }); }
 function handleReadyClick() { if (!currentRoomId || !currentGameState) return; const actualReadyButton = document.getElementById('readyButton'); if (!actualReadyButton) {console.error("Ready button not found!"); return;} const desiredReadyState = !isReadyForGame; actualReadyButton.disabled = true; socket.emit('playerReady', desiredReadyState, (response) => { actualReadyButton.disabled = false; if (!response.success) { const gameStatusDisp = document.getElementById('gameStatusDisplay'); displayMessage(gameStatusDisp, response.message || "无法改变准备状态。", true); } }); }
-function handleSortHand() { if (currentSortMode === 'rank') currentSortMode = 'suit'; else currentSortMode = 'rank'; if (currentGameState && currentView === 'roomView') { const myPlayer = currentGameState.players.find(p => p.userId === myUserId); if (myPlayer && myPlayer.hand) { const selfArea = playerAreas[0]; if(selfArea) { const cardsEl = selfArea.querySelector('.myHand'); if (cardsEl) renderPlayerCards(cardsEl, myPlayer, true, currentGameState.status === 'playing' && currentGameState.currentPlayerId === myUserId); } } } }
+function handleSortHand() { if (currentSortMode === 'rank') currentSortMode = 'suit'; else currentSortMode = 'rank'; if (currentGameState && currentView === 'roomView') { const myPlayer = currentGameState.players.find(p => p.userId === myUserId); if (myPlayer && myPlayer.hand) { const selfArea = playerAreas[0]; if(selfArea) { // const cardsEl = selfArea.querySelector('.myHand'); // 旧的获取方式
+                const cardsEl = document.getElementById('myHand'); // 直接获取
+                if (cardsEl) renderPlayerCards(cardsEl, myPlayer, true, currentGameState.status === 'playing' && currentGameState.currentPlayerId === myUserId); } } } }
 function toggleCardSelection(cardData, cardElement) { if (!cardElement || cardElement.classList.contains('disabled')) return; const index = selectedCards.findIndex(c => c.rank === cardData.rank && c.suit === cardData.suit); if (index > -1) { selectedCards.splice(index, 1); cardElement.classList.remove('selected'); } else { selectedCards.push(cardData); cardElement.classList.add('selected'); } if (playSelectedCardsButton && currentGameState && currentGameState.currentPlayerId === myUserId) { playSelectedCardsButton.disabled = selectedCards.length === 0; } }
 function handlePlaySelectedCards() { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (selectedCards.length === 0) { displayMessage(gameStatusDisp, '请先选择要出的牌。', true); return; } if (!currentRoomId || !currentGameState || currentGameState.status !== 'playing' || currentGameState.currentPlayerId !== myUserId) { displayMessage(gameStatusDisp, '现在不是你的回合或状态无效。', true); return; } setGameActionButtonsDisabled(true); socket.emit('playCard', selectedCards, (response) => { if (!response.success) { displayMessage(gameStatusDisp, response.message || '出牌失败。', true); if (currentGameState && currentGameState.status === 'playing' && currentGameState.currentPlayerId === myUserId) { setGameActionButtonsDisabled(false); } } else { selectedCards = []; clearHintsAndSelection(true); } }); }
 function handlePassTurn() { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (!currentRoomId || !currentGameState || currentGameState.status !== 'playing' || currentGameState.currentPlayerId !== myUserId) { displayMessage(gameStatusDisp, '现在不是你的回合或状态无效。', true); return; } if (passTurnButton && passTurnButton.disabled) { displayMessage(gameStatusDisp, '你必须出牌。', true); return; } setGameActionButtonsDisabled(true); selectedCards = []; socket.emit('passTurn', (response) => { if (!response.success) { displayMessage(gameStatusDisp, response.message || 'Pass 失败。', true); if (currentGameState && currentGameState.status === 'playing' && currentGameState.currentPlayerId === myUserId) { setGameActionButtonsDisabled(false); } } else { clearHintsAndSelection(true); } }); }
 function handleHint() { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (!currentRoomId || !currentGameState || currentGameState.status !== 'playing' || currentGameState.currentPlayerId !== myUserId) { displayMessage(gameStatusDisp, '现在不是你的回合或状态无效。', true); return; } setGameActionButtonsDisabled(true); socket.emit('requestHint', currentHintCycleIndex, (response) => { if (currentGameState && currentGameState.status === 'playing' && currentGameState.currentPlayerId === myUserId) { setGameActionButtonsDisabled(false); } clearHintsAndSelection(false); if (response.success && response.hint && response.hint.cards) { displayMessage(gameStatusDisp, '找到提示！(再点提示可尝试下一个)', false, true); currentHint = response.hint; currentHintCycleIndex = response.nextHintIndex; highlightHintedCards(currentHint.cards); } else { displayMessage(gameStatusDisp, response.message || '没有可出的牌或无更多提示。', true); currentHint = null; currentHintCycleIndex = 0; } }); }
 function setGameActionButtonsDisabled(disabled) { if (playSelectedCardsButton) playSelectedCardsButton.disabled = disabled; if (passTurnButton) passTurnButton.disabled = disabled; if (hintButton) hintButton.disabled = disabled; if (!disabled && currentGameState) { updateRoomControls(currentGameState); } }
-function highlightHintedCards(hintedCardsArray) { if (!hintedCardsArray || hintedCardsArray.length === 0) return; if (!myHandArea) return; const cardElements = myHandArea.querySelectorAll('.card.visible:not(.hidden)'); hintedCardsArray.forEach(hintCard => { for(const elem of cardElements) { if(elem.dataset.rank === hintCard.rank && elem.dataset.suit === hintCard.suit) { elem.classList.add('hinted'); break; } } }); }
-function clearHintsAndSelection(resetHintCycleAndSelection = true) { if (resetHintCycleAndSelection) { currentHint = null; currentHintCycleIndex = 0; selectedCards = []; if(playSelectedCardsButton) playSelectedCardsButton.disabled = true; } if (myHandArea) { const hintedElements = myHandArea.querySelectorAll('.card.hinted'); hintedElements.forEach(el => el.classList.remove('hinted')); if(resetHintCycleAndSelection){ const selectedElements = myHandArea.querySelectorAll('.card.selected'); selectedElements.forEach(el => el.classList.remove('selected')); } } }
+function highlightHintedCards(hintedCardsArray) { if (!hintedCardsArray || hintedCardsArray.length === 0) return;
+    const localMyHandArea = document.getElementById('myHand'); // 使用局部获取
+    if (!localMyHandArea) return;
+    const cardElements = localMyHandArea.querySelectorAll('.card.visible:not(.hidden)');
+    hintedCardsArray.forEach(hintCard => { for(const elem of cardElements) { if(elem.dataset.rank === hintCard.rank && elem.dataset.suit === hintCard.suit) { elem.classList.add('hinted'); break; } } });
+}
+function clearHintsAndSelection(resetHintCycleAndSelection = true) {
+    if (resetHintCycleAndSelection) {
+        currentHint = null;
+        currentHintCycleIndex = 0;
+        selectedCards = [];
+        if(playSelectedCardsButton) playSelectedCardsButton.disabled = true;
+    }
+    const localMyHandArea = document.getElementById('myHand'); // 使用局部获取
+    if (localMyHandArea) {
+        const hintedElements = localMyHandArea.querySelectorAll('.card.hinted');
+        hintedElements.forEach(el => el.classList.remove('hinted'));
+        if(resetHintCycleAndSelection){
+            const selectedElements = localMyHandArea.querySelectorAll('.card.selected');
+            selectedElements.forEach(el => el.classList.remove('selected'));
+        }
+    }
+}
 function handleReturnToLobby() { console.log("Returning to lobby."); currentRoomId = null; currentGameState = null; previousGameState = null; isReadyForGame = false; selectedCards = []; currentHint = null; currentHintCycleIndex = 0; if (gameOverOverlay && !gameOverOverlay.classList.contains('hidden-view')) { gameOverOverlay.classList.add('hidden-view'); gameOverOverlay.classList.remove('view-flex'); } showView('lobbyView'); socket.emit('listRooms', (rooms) => { renderRoomList(rooms); }); }
 function showGameOver(scoreResultData) { if (!scoreResultData) { console.warn("showGameOver called with no data. Using last known game state if available."); gameOverTitle.textContent = "游戏结束!"; gameOverReason.textContent = currentGameState?.gameResult?.reason || "无法获取详细结果。"; gameOverScores.innerHTML = ''; const playersToDisplay = currentGameState?.players || []; playersToDisplay.forEach(playerData => { const p = document.createElement('p'); p.textContent = `${playerData.name} (${playerData.role || '?'}) 总分: ${playerData.score}`; gameOverScores.appendChild(p); }); } else { gameOverTitle.textContent = scoreResultData.result || "游戏结束!"; gameOverReason.textContent = scoreResultData.reason || (scoreResultData.result ? '' : "游戏正常结束。"); gameOverScores.innerHTML = ''; const playersToDisplay = scoreResultData.finalScores || currentGameState?.players || []; playersToDisplay.forEach(playerData => { const p = document.createElement('p'); let scoreText = `${playerData.name} (${playerData.role || '?'})`; if (scoreResultData.scoreChanges && scoreResultData.scoreChanges[playerData.id] !== undefined) { const change = scoreResultData.scoreChanges[playerData.id]; const changeDisplay = change > 0 ? `+${change}` : (change < 0 ? `${change}` : '0'); const changeClass = change > 0 ? 'score-plus' : (change < 0 ? 'score-minus' : 'score-zero'); scoreText += ` : <span class="${changeClass}">${changeDisplay}</span>`; } scoreText += ` (总分: ${playerData.score})`; p.innerHTML = scoreText; gameOverScores.appendChild(p); }); } showView('gameOverOverlay'); }
 
@@ -233,22 +270,48 @@ socket.on('playerReadyUpdate', ({ userId, isReady }) => { if (currentGameState &
 socket.on('playerJoined', (newPlayerInfo) => { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (currentView === 'roomView' && currentGameState) { console.log('Player joined:', newPlayerInfo.username); previousGameState = JSON.parse(JSON.stringify(currentGameState)); const existingPlayer = currentGameState.players.find(p => p.userId === newPlayerInfo.userId); if (existingPlayer) { Object.assign(existingPlayer, newPlayerInfo, {connected: true}); } else { let slotToFill = newPlayerInfo.slot; if (slotToFill === undefined || currentGameState.players.some(p=>p.slot === slotToFill && p.userId !== newPlayerInfo.userId)){ for(let i=0; i<4; i++){ if(!currentGameState.players.some(p=>p.slot === i)){ slotToFill = i; break;}} } currentGameState.players.push({ ...newPlayerInfo, slot: slotToFill, score:0, hand:undefined, handCount:0, role:null, finished:false, connected:true }); } currentGameState.players.sort((a,b) => a.slot - b.slot); renderRoomView(currentGameState); if (gameStatusDisp) displayMessage(gameStatusDisp, `${newPlayerInfo.username} 加入了房间。`, false, true); } else if (currentView === 'roomView' && !currentGameState) { socket.emit('requestGameState', (state) => { if(state) { currentGameState = state; previousGameState = null; renderRoomView(currentGameState); if (gameStatusDisp) displayMessage(gameStatusDisp, `${newPlayerInfo.username} 加入了房间。`, false, true); } }); } });
 socket.on('playerLeft', ({ userId, username, reason }) => { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (currentGameState && currentView === 'roomView') { console.log('Player left:', username, reason); previousGameState = JSON.parse(JSON.stringify(currentGameState)); const playerIdx = currentGameState.players.findIndex(p => p.userId === userId); if (playerIdx > -1) { currentGameState.players[playerIdx].connected = false; currentGameState.players[playerIdx].isReady = false; } renderRoomView(currentGameState); if (gameStatusDisp) displayMessage(gameStatusDisp, `${username} ${reason === 'disconnected' ? '断线了' : '离开了房间'}。`, true); } });
 socket.on('playerReconnected', (reconnectedPlayerInfo) => { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (currentView === 'roomView' && currentGameState) { console.log('Player reconnected:', reconnectedPlayerInfo.username); previousGameState = JSON.parse(JSON.stringify(currentGameState)); const player = currentGameState.players.find(p => p.userId === reconnectedPlayerInfo.userId); if (player) { Object.assign(player, reconnectedPlayerInfo, {connected: true});} else { console.warn("Reconnected player not found in current game state, adding fresh."); currentGameState.players.push({ ...reconnectedPlayerInfo, score:0, hand:undefined, handCount:0, role:null, finished:false, connected:true }); currentGameState.players.sort((a,b) => a.slot - b.slot); } renderRoomView(currentGameState); if (gameStatusDisp) displayMessage(gameStatusDisp, `${reconnectedPlayerInfo.username} 重新连接。`, false, true); } else if (currentView === 'roomView' && !currentGameState) { socket.emit('requestGameState', (state) => { if(state) { currentGameState = state; previousGameState = null; renderRoomView(currentGameState); if (gameStatusDisp) displayMessage(gameStatusDisp, `${reconnectedPlayerInfo.username} 重新连接。`, false, true); } }); } });
-socket.on('gameStarted', (initialGameState) => { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (currentView === 'roomView' && currentRoomId === initialGameState.roomId) { console.log('Game started event received!', initialGameState); previousGameState = currentGameState; currentGameState = initialGameState; if (gameStatusDisp) displayMessage(gameStatusDisp, '游戏开始！祝你好运！', false, true); selectedCards = []; clearHintsAndSelection(true); renderRoomView(initialGameState); } else { console.warn("Received gameStarted for a room I'm not in or not viewing:", initialGameState.roomId, "My current room:", currentRoomId); } });
+
+socket.on('gameStarted', (initialGameState) => {
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
+    if (currentView === 'roomView' && currentRoomId === initialGameState.roomId) {
+        console.log('Game started event received!', initialGameState);
+
+        // **** MODIFICATION START ****
+        // 强制清理自己的手牌区域，以防万一之前的渲染留下了DOM元素
+        const selfHandContainer = document.getElementById('myHand');
+        if (selfHandContainer) {
+            console.log('[DEBUG] Force clearing #myHand before gameStarted render.');
+            while (selfHandContainer.firstChild) {
+                selfHandContainer.removeChild(selfHandContainer.firstChild);
+            }
+        }
+        // **** MODIFICATION END ****
+
+        previousGameState = currentGameState;
+        currentGameState = initialGameState;
+        if (gameStatusDisp) displayMessage(gameStatusDisp, '游戏开始！祝你好运！', false, true);
+        selectedCards = [];
+        clearHintsAndSelection(true);
+        renderRoomView(initialGameState);
+    } else {
+        console.warn("Received gameStarted for a room I'm not in or not viewing:", initialGameState.roomId, "My current room:", currentRoomId);
+    }
+});
 
 socket.on('gameStateUpdate', (newState) => {
     if (currentView === 'roomView' && currentRoomId === newState.roomId) {
-        console.groupCollapsed(`[DEBUG] gameStateUpdate Received for room ${newState.roomId}`);
-        console.log("Timestamp:", new Date().toLocaleTimeString());
-        const myPlayerDataInNewState = newState.players.find(p => p.userId === myUserId);
-        if (myPlayerDataInNewState) {
-            console.log(`My Hand in new state (${myPlayerDataInNewState.username}):`,
-                myPlayerDataInNewState.hand ? JSON.parse(JSON.stringify(myPlayerDataInNewState.hand)) : 'undefined or empty',
-                `(Count: ${myPlayerDataInNewState.handCount})`
-            );
-        } else {
-            console.warn("My player data not found in new state!");
-        }
-        console.groupEnd();
+        // console.groupCollapsed(`[DEBUG] gameStateUpdate Received for room ${newState.roomId}`); // 减少不必要的日志
+        // console.log("Timestamp:", new Date().toLocaleTimeString());
+        // const myPlayerDataInNewState = newState.players.find(p => p.userId === myUserId);
+        // if (myPlayerDataInNewState) {
+        //     console.log(`My Hand in new state (${myPlayerDataInNewState.username}):`,
+        //         myPlayerDataInNewState.hand ? JSON.parse(JSON.stringify(myPlayerDataInNewState.hand)) : 'undefined or empty',
+        //         `(Count: ${myPlayerDataInNewState.handCount})`
+        //     );
+        // } else {
+        //     console.warn("My player data not found in new state!");
+        // }
+        // console.groupEnd();
 
         let myCurrentHand = null;
         if (currentGameState && currentGameState.players) {
