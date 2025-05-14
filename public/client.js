@@ -1,4 +1,7 @@
 // public/client.js
+// --- (所有之前的 const, let, DOM Element declarations, utility functions - 保持不变) ---
+// (我将直接粘贴 fanCards 和 renderPlayerCards 的修改版本，其余部分假设与您上一个完整版 client.js 相同)
+
 const socket = io({
     reconnectionAttempts: 5,
     reconnectionDelay: 3000
@@ -10,7 +13,7 @@ let myUserId = null;
 let myUsername = null;
 let currentRoomId = null;
 let currentGameState = null;
-let previousGameState = null; // Keep for debugging or specific comparisons
+let previousGameState = null;
 let isReadyForGame = false;
 let selectedCards = [];
 let currentSortMode = 'rank';
@@ -40,16 +43,16 @@ const roomListEl = document.getElementById('roomList');
 const lobbyMessage = document.getElementById('lobbyMessage');
 const centerPileArea = document.getElementById('centerPileArea');
 const lastHandTypeDisplay = document.getElementById('lastHandTypeDisplay');
-const myHandArea = document.getElementById('myHand'); // This is the direct container for user's cards
+const myHandArea = document.getElementById('myHand');
 const playSelectedCardsButton = document.getElementById('playSelectedCardsButton');
 const passTurnButton = document.getElementById('passTurnButton');
 const hintButton = document.getElementById('hintButton');
 const sortHandButton = document.getElementById('sortHandButton');
-const playerAreas = { // These are the top-level containers for each player slot
-    0: document.getElementById('playerAreaBottom'), // Self
-    1: document.getElementById('playerAreaLeft'),   // Opponent
-    2: document.getElementById('playerAreaTop'),    // Opponent
-    3: document.getElementById('playerAreaRight')   // Opponent
+const playerAreas = {
+    0: document.getElementById('playerAreaBottom'),
+    1: document.getElementById('playerAreaLeft'),
+    2: document.getElementById('playerAreaTop'),
+    3: document.getElementById('playerAreaRight')
 };
 const gameOverTitle = document.getElementById('gameOverTitle');
 const gameOverReason = document.getElementById('gameOverReason');
@@ -86,19 +89,19 @@ function renderRoomView(state) { if (!state || !roomView || !myUserId) { console
 function clearPlayerAreaDOM(area) { if (!area) return; const avatarEl = area.querySelector('.player-avatar'); const nameEl = area.querySelector('.playerName'); const roleEl = area.querySelector('.playerRole'); const infoEl = area.querySelector('.playerInfo'); const cardsEl = area.querySelector('.playerCards'); const handCountEl = area.querySelector('.hand-count-display'); if (avatarEl) { avatarEl.innerHTML = ''; avatarEl.style.backgroundImage = ''; } if (nameEl) nameEl.textContent = (area.id === 'playerAreaBottom' && myUsername) ? myUsername + ' (你)' : '空位'; if (roleEl) roleEl.textContent = '[?]'; if (infoEl) infoEl.innerHTML = '总分: 0'; if (cardsEl) cardsEl.innerHTML = '<span style="color:#888; font-style:italic;">- 等待 -</span>'; if (handCountEl) handCountEl.remove(); if (area.id === 'playerAreaBottom') { const actionsContainers = area.querySelectorAll('.my-actions-container'); actionsContainers.forEach(ac => ac.classList.add('hidden-view')); const readyBtn = area.querySelector('#readyButton'); if (readyBtn) readyBtn.classList.add('hidden-view'); } }
 function renderPlayerArea(container, playerData, isMe, state, absoluteSlot) { const avatarEl = container.querySelector('.player-avatar'); const nameEl = container.querySelector('.playerName'); const roleEl = container.querySelector('.playerRole'); const infoEl = container.querySelector('.playerInfo'); const cardsEl = container.querySelector('.playerCards'); if (!playerData || !playerData.userId) { clearPlayerAreaDOM(container); return; } if (avatarEl) { avatarEl.innerHTML = ''; avatarEl.style.backgroundImage = `url('${AVATAR_PATHS[absoluteSlot % AVATAR_PATHS.length]}')`; if (state.status === 'playing' && playerData.userId === state.currentPlayerId && !playerData.finished) { const alarmImg = document.createElement('img'); alarmImg.src = ALARM_ICON_SRC; alarmImg.alt = '出牌提示'; alarmImg.classList.add('alarm-icon'); avatarEl.appendChild(alarmImg); avatarEl.style.backgroundImage = 'none'; } } if (nameEl) nameEl.textContent = playerData.username + (isMe ? ' (你)' : ''); if (roleEl) roleEl.textContent = playerData.role ? `[${playerData.role}]` : '[?]'; if (infoEl) { let infoText = `总分: ${playerData.score || 0}`; if (playerData.finished) infoText += ' <span class="finished">[已完成]</span>'; else if (!playerData.connected && state.status !== 'waiting') infoText += ' <span class="disconnected">[已断线]</span>'; else if (state.status === 'waiting' && !isMe) { infoText += playerData.isReady ? ' <span class="ready">[已准备]</span>' : ' <span class="not-ready">[未准备]</span>'; } infoEl.innerHTML = infoText; } if (cardsEl) renderPlayerCards(cardsEl, playerData, isMe, state.status === 'playing' && state.currentPlayerId === myUserId); }
 
-// MODIFIED fanCards - only for opponents now
+// REVISED fanCards - only for opponents now, self hand relies on CSS and direct z-index in renderPlayerCards
 function fanCards(cardContainer, cardElements, areaId) {
     const numCards = cardElements.length;
-    if (numCards === 0 || areaId === 'playerAreaBottom') { // Do nothing for self hand
-        // For self hand, ensure z-index is set correctly for CSS overlap
+    if (numCards === 0 || areaId === 'playerAreaBottom') {
+        // For self hand (#playerAreaBottom), z-index is set in renderPlayerCards.
+        // CSS :hover and .selected classes handle transforms.
+        // Ensure any JS transforms are cleared if they were previously applied.
         if (areaId === 'playerAreaBottom') {
-            cardElements.forEach((card, i) => {
-                card.style.zIndex = i; // Lower index (leftmost) is further back
-                // Clear any JS transforms, CSS handles it
+            cardElements.forEach((card) => {
                 card.style.transform = '';
                 card.style.left = '';
                 card.style.top = '';
-                card.style.position = ''; // Let it be a flex item
+                card.style.position = ''; // Ensure it's a flex item for #myHand
             });
         }
         return;
@@ -110,15 +113,9 @@ function fanCards(cardContainer, cardElements, areaId) {
     const maxVisibleStackedCards = Math.min(numCards, 3);
 
     cardElements.forEach((card, i) => {
-        let currentOffsetX = 0;
-        let currentOffsetY = 0;
-        if (i < maxVisibleStackedCards) {
-            currentOffsetX = i * offsetXPerCard;
-            currentOffsetY = i * offsetYPerCard;
-        } else {
-            currentOffsetX = (maxVisibleStackedCards - 1) * offsetXPerCard;
-            currentOffsetY = (maxVisibleStackedCards - 1) * offsetYPerCard;
-        }
+        // CSS for .opponentHand .card should set position: absolute;
+        let currentOffsetX = (i < maxVisibleStackedCards) ? i * offsetXPerCard : (maxVisibleStackedCards - 1) * offsetXPerCard;
+        let currentOffsetY = (i < maxVisibleStackedCards) ? i * offsetYPerCard : (maxVisibleStackedCards - 1) * offsetYPerCard;
         card.style.transform = `translate(${currentOffsetX}px, ${currentOffsetY}px)`;
         card.style.zIndex = i;
         card.style.opacity = '1';
@@ -128,23 +125,22 @@ function fanCards(cardContainer, cardElements, areaId) {
 function getCardImageFilename(cardData) { if (!cardData || typeof cardData.rank !== 'string' || typeof cardData.suit !== 'string') { console.error("Invalid cardData for getCardImageFilename:", cardData); return null; } let rankStr = cardData.rank.toLowerCase(); if (rankStr === 't') rankStr = '10'; else if (rankStr === 'j') rankStr = 'jack'; else if (rankStr === 'q') rankStr = 'queen'; else if (rankStr === 'k') rankStr = 'king'; else if (rankStr === 'a') rankStr = 'ace'; let suitStr = ''; switch (cardData.suit.toUpperCase()) { case 'S': suitStr = 'spades'; break; case 'H': suitStr = 'hearts'; break; case 'D': suitStr = 'diamonds'; break; case 'C': suitStr = 'clubs'; break; default: console.warn("Invalid suit for card image:", cardData.suit); return null; } return `${rankStr}_of_${suitStr}.png`; }
 function renderCard(cardData, isHidden, isCenterPileCard = false) { const cardDiv = document.createElement('div'); cardDiv.classList.add('card'); if (isHidden || !cardData) { cardDiv.classList.add('hidden'); } else { cardDiv.classList.add('visible'); const filename = getCardImageFilename(cardData); if (filename) { cardDiv.style.backgroundImage = `url('/images/cards/${filename}')`; cardDiv.dataset.suit = cardData.suit; cardDiv.dataset.rank = cardData.rank; } else { cardDiv.textContent = `${cardData.rank || '?'}${getSuitSymbol(cardData.suit)}`; cardDiv.classList.add(getSuitClass(cardData.suit)); console.error("Failed to generate filename for card:", cardData, "Using text fallback."); } } return cardDiv; }
 
-// MODIFIED renderPlayerCards - focus on clean render for self hand
+// REVISED renderPlayerCards - focus on clean render and direct z-index for self hand
 function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
     if (isMe) {
-        // console.groupCollapsed(`[DEBUG] renderPlayerCards for ME (${playerData.username})`);
-        // console.log("Hand Data for Render:", playerData.hand ? JSON.parse(JSON.stringify(playerData.hand)) : 'undefined');
+        // console.groupCollapsed(`[DEBUG] renderPlayerCards for ME (${playerData.username}) at ${new Date().toLocaleTimeString()}`);
+        // console.log("Hand Data for Render:", playerData.hand ? JSON.parse(JSON.stringify(playerData.hand)) : 'undefined or empty');
+        // console.log("Container before clear:", container.innerHTML.substring(0, 100) + "...");
         // console.groupEnd();
     }
 
-    // THOROUGHLY CLEAR THE CONTAINER
-    while (container.firstChild) {
+    while (container.firstChild) { // Thoroughly clear previous DOM elements
         container.removeChild(container.firstChild);
     }
 
-    const cardElements = []; // This will be passed to fanCards ONLY for opponents
+    const localCardElements = []; // Only used for opponents to pass to fanCards
 
     if (isMe) {
-        // My hand (playerAreaBottom's .myHand container)
         let sortedHand = playerData.hand ? [...playerData.hand] : [];
         if (playerData.finished) {
             container.innerHTML = '<span style="color:#888; font-style:italic;">已出完</span>';
@@ -154,10 +150,9 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
             if (currentSortMode === 'rank') sortedHand.sort(compareSingleCardsClient);
             else if (currentSortMode === 'suit') sortedHand.sort(compareBySuitThenRank);
 
-            sortedHand.forEach((cardData, index) => { // Add index for z-index
+            sortedHand.forEach((cardData, index) => {
                 const cardElement = renderCard(cardData, false, false);
-                // Set z-index directly for natural CSS stacking with negative margins
-                cardElement.style.zIndex = index;
+                cardElement.style.zIndex = index; // Set z-index based on order in hand
 
                 const isSelected = selectedCards.some(c => c.rank === cardData.rank && c.suit === cardData.suit);
                 const isHinted = currentHint && currentHint.cards.some(c => c.rank === cardData.rank && c.suit === cardData.suit);
@@ -170,7 +165,7 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
                     cardElement.classList.add('disabled');
                 }
                 container.appendChild(cardElement);
-                // No need to push to cardElements for self hand if fanCards isn't doing transforms for it
+                // No need to push to localCardElements for self if fanCards isn't transforming them
             });
         }
     } else { // Opponent's hand
@@ -180,7 +175,7 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
             for (let i = 0; i < playerData.handCount; i++) {
                 const cardElement = renderCard(null, true, false);
                 container.appendChild(cardElement);
-                cardElements.push(cardElement); // Collect for fanCards (stacking)
+                localCardElements.push(cardElement); // Collect for fanCards (stacking)
             }
             let handCountEl = container.closest('.playerArea')?.querySelector('.hand-count-display');
             if (!handCountEl) {
@@ -196,11 +191,50 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
             if (handCountEl) handCountEl.remove();
         }
 
-        if (cardElements.length > 0) { // Only call fanCards for opponents
+        if (localCardElements.length > 0) { // Only call fanCards for opponents
             requestAnimationFrame(() => {
-                 fanCards(container, cardElements, container.closest('.playerArea')?.id);
+                 fanCards(container, localCardElements, container.closest('.playerArea')?.id);
             });
         }
+    }
+}
+
+// REVISED toggleCardSelection for z-index management
+function toggleCardSelection(cardData, cardElement) {
+    if (!cardElement || cardElement.classList.contains('disabled')) return;
+
+    const handCardElements = Array.from(myHandArea.querySelectorAll('.card:not(.hidden)'));
+    const originalZIndices = handCardElements.map(el => parseInt(el.style.zIndex || '0', 10));
+
+    const indexInSelected = selectedCards.findIndex(c => c.rank === cardData.rank && c.suit === cardData.suit);
+
+    if (indexInSelected > -1) { // Card is being deselected
+        selectedCards.splice(indexInSelected, 1);
+        cardElement.classList.remove('selected');
+        // Restore original z-index (or let CSS :not(.selected) handle it if preferred)
+        // For simplicity, renderPlayerCards will re-apply z-index on next full render.
+        // Here, just remove the high z-index from CSS or inline style if it was set.
+        cardElement.style.zIndex = originalZIndices[handCardElements.indexOf(cardElement)] || 'auto';
+
+    } else { // Card is being selected
+        selectedCards.push(cardData);
+        cardElement.classList.add('selected');
+        // Set a high z-index to bring it to the front of its immediate siblings.
+        // CSS class '.selected' should also have a z-index, but this ensures it.
+        // The value should be higher than any normal card's z-index in the hand.
+        cardElement.style.zIndex = (handCardElements.length + 10).toString(); // e.g., 13 cards -> z-index 23
+    }
+
+    // After selection change, re-apply base z-indices to non-selected cards
+    // to ensure correct overlap if multiple cards were previously selected.
+    // This is a bit heavy-handed; ideally, only affected cards are touched.
+    // However, a full re-render or re-application of z-indices via fanCards (if it still loops for self)
+    // on gameStateUpdate might be cleaner.
+    // For now, let's rely on the CSS classes and the initial z-index set in renderPlayerCards.
+    // The primary goal here is that .selected class has a higher z-index in CSS.
+
+    if (playSelectedCardsButton && currentGameState && currentGameState.currentPlayerId === myUserId) {
+         playSelectedCardsButton.disabled = selectedCards.length === 0;
     }
 }
 
@@ -214,7 +248,7 @@ function handleCreateRoom() { const roomName = createRoomNameInput.value.trim();
 function joinRoom(roomId, needsPassword) { let passwordToTry = null; if (needsPassword) { passwordToTry = prompt(`房间 "${roomId}" 受密码保护，请输入密码:`, ''); if (passwordToTry === null) return; } displayMessage(lobbyMessage, `正在加入房间 ${roomId}...`, false); socket.emit('joinRoom', { roomId, password: passwordToTry }, (response) => { if (response.success) { currentRoomId = response.roomId; showView('roomView'); previousGameState = null; currentGameState = response.roomState; renderRoomView(response.roomState); displayMessage(lobbyMessage, '', false); } else { displayMessage(lobbyMessage, response.message, true); } }); }
 function handleReadyClick() { if (!currentRoomId || !currentGameState) return; const actualReadyButton = document.getElementById('readyButton'); if (!actualReadyButton) {console.error("Ready button not found!"); return;} const desiredReadyState = !isReadyForGame; actualReadyButton.disabled = true; socket.emit('playerReady', desiredReadyState, (response) => { actualReadyButton.disabled = false; if (!response.success) { const gameStatusDisp = document.getElementById('gameStatusDisplay'); displayMessage(gameStatusDisp, response.message || "无法改变准备状态。", true); } }); }
 function handleSortHand() { if (currentSortMode === 'rank') currentSortMode = 'suit'; else currentSortMode = 'rank'; if (currentGameState && currentView === 'roomView') { const myPlayer = currentGameState.players.find(p => p.userId === myUserId); if (myPlayer && myPlayer.hand) { const selfArea = playerAreas[0]; if(selfArea) { const cardsEl = selfArea.querySelector('.myHand'); if (cardsEl) renderPlayerCards(cardsEl, myPlayer, true, currentGameState.status === 'playing' && currentGameState.currentPlayerId === myUserId); } } } }
-function toggleCardSelection(cardData, cardElement) { if (!cardElement || cardElement.classList.contains('disabled')) return; const index = selectedCards.findIndex(c => c.rank === cardData.rank && c.suit === cardData.suit); if (index > -1) { selectedCards.splice(index, 1); cardElement.classList.remove('selected'); } else { selectedCards.push(cardData); cardElement.classList.add('selected'); } if (playSelectedCardsButton && currentGameState && currentGameState.currentPlayerId === myUserId) { playSelectedCardsButton.disabled = selectedCards.length === 0; } }
+// toggleCardSelection is already defined above with revisions
 function handlePlaySelectedCards() { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (selectedCards.length === 0) { displayMessage(gameStatusDisp, '请先选择要出的牌。', true); return; } if (!currentRoomId || !currentGameState || currentGameState.status !== 'playing' || currentGameState.currentPlayerId !== myUserId) { displayMessage(gameStatusDisp, '现在不是你的回合或状态无效。', true); return; } setGameActionButtonsDisabled(true); socket.emit('playCard', selectedCards, (response) => { if (!response.success) { displayMessage(gameStatusDisp, response.message || '出牌失败。', true); if (currentGameState && currentGameState.status === 'playing' && currentGameState.currentPlayerId === myUserId) { setGameActionButtonsDisabled(false); } } else { selectedCards = []; clearHintsAndSelection(true); } }); }
 function handlePassTurn() { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (!currentRoomId || !currentGameState || currentGameState.status !== 'playing' || currentGameState.currentPlayerId !== myUserId) { displayMessage(gameStatusDisp, '现在不是你的回合或状态无效。', true); return; } if (passTurnButton && passTurnButton.disabled) { displayMessage(gameStatusDisp, '你必须出牌。', true); return; } setGameActionButtonsDisabled(true); selectedCards = []; socket.emit('passTurn', (response) => { if (!response.success) { displayMessage(gameStatusDisp, response.message || 'Pass 失败。', true); if (currentGameState && currentGameState.status === 'playing' && currentGameState.currentPlayerId === myUserId) { setGameActionButtonsDisabled(false); } } else { clearHintsAndSelection(true); } }); }
 function handleHint() { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (!currentRoomId || !currentGameState || currentGameState.status !== 'playing' || currentGameState.currentPlayerId !== myUserId) { displayMessage(gameStatusDisp, '现在不是你的回合或状态无效。', true); return; } setGameActionButtonsDisabled(true); socket.emit('requestHint', currentHintCycleIndex, (response) => { if (currentGameState && currentGameState.status === 'playing' && currentGameState.currentPlayerId === myUserId) { setGameActionButtonsDisabled(false); } clearHintsAndSelection(false); if (response.success && response.hint && response.hint.cards) { displayMessage(gameStatusDisp, '找到提示！(再点提示可尝试下一个)', false, true); currentHint = response.hint; currentHintCycleIndex = response.nextHintIndex; highlightHintedCards(currentHint.cards); } else { displayMessage(gameStatusDisp, response.message || '没有可出的牌或无更多提示。', true); currentHint = null; currentHintCycleIndex = 0; } }); }
@@ -237,35 +271,53 @@ socket.on('gameStarted', (initialGameState) => { const gameStatusDisp = document
 
 socket.on('gameStateUpdate', (newState) => {
     if (currentView === 'roomView' && currentRoomId === newState.roomId) {
-        console.groupCollapsed(`[DEBUG] gameStateUpdate Received for room ${newState.roomId}`);
-        console.log("Timestamp:", new Date().toLocaleTimeString());
-        const myPlayerDataInNewState = newState.players.find(p => p.userId === myUserId);
-        if (myPlayerDataInNewState) {
-            console.log(`My Hand in new state (${myPlayerDataInNewState.username}):`,
-                myPlayerDataInNewState.hand ? JSON.parse(JSON.stringify(myPlayerDataInNewState.hand)) : 'undefined or empty',
-                `(Count: ${myPlayerDataInNewState.handCount})`
+        console.groupCollapsed(`[DEBUG] gameStateUpdate Received for room ${newState.roomId} at ${new Date().toLocaleTimeString()}`);
+        const myPlayerInNewState = newState.players.find(p => p.userId === myUserId);
+        if (myPlayerInNewState) {
+            console.log(`My Hand in new state (${myPlayerInNewState.username}):`,
+                myPlayerInNewState.hand ? JSON.parse(JSON.stringify(myPlayerInNewState.hand)) : 'undefined or empty',
+                `(Count: ${myPlayerInNewState.handCount})`
             );
         } else {
             console.warn("My player data not found in new state!");
         }
         console.groupEnd();
 
-        let myCurrentHand = null;
+        // PRESERVE current client-side knowledge of hand IF server's update for self is 'undefined'
+        // This is a fallback and ideally server should always send hand data for self.
+        let myCurrentKnownHand = null;
         if (currentGameState && currentGameState.players) {
-            const myPlayerInOldState = currentGameState.players.find(p => p.userId === myUserId);
-            if (myPlayerInOldState && myPlayerInOldState.hand && Array.isArray(myPlayerInOldState.hand)) {
-                myCurrentHand = JSON.parse(JSON.stringify(myPlayerInOldState.hand));
+            const myPlayerInOldClientState = currentGameState.players.find(p => p.userId === myUserId);
+            if (myPlayerInOldClientState && myPlayerInOldClientState.hand && Array.isArray(myPlayerInOldClientState.hand)) {
+                myCurrentKnownHand = JSON.parse(JSON.stringify(myPlayerInOldClientState.hand));
             }
         }
+
         previousGameState = currentGameState ? JSON.parse(JSON.stringify(currentGameState)) : null;
-        currentGameState = newState;
-        if (myCurrentHand && myCurrentHand.length > 0) {
-            const myPlayerInNewStateUpdated = currentGameState.players.find(p => p.userId === myUserId);
-            if (myPlayerInNewStateUpdated && !myPlayerInNewStateUpdated.finished && myPlayerInNewStateUpdated.hand === undefined) {
-                console.warn("CLIENT: Restoring my hand locally as broadcast didn't include it for gameStateUpdate.");
-                myPlayerInNewStateUpdated.hand = myCurrentHand;
+        currentGameState = newState; // APPLY new state from server FIRST
+
+        // NOW, if the server's new state for me has an undefined hand,
+        // AND I previously had a valid hand (myCurrentKnownHand), restore it.
+        // This should ONLY happen if server intentionally omits hand for self in some general broadcasts.
+        const myPlayerAfterServerUpdate = currentGameState.players.find(p => p.userId === myUserId);
+        if (myPlayerAfterServerUpdate) {
+            if (myPlayerAfterServerUpdate.hand === undefined && myCurrentKnownHand && !myPlayerAfterServerUpdate.finished) {
+                // Check if the last player who played was ME. If so, myCurrentKnownHand is stale.
+                // Only restore if the update was likely due to another player's action.
+                if (currentGameState.lastPlayerWhoPlayedId !== myUserId) {
+                    console.warn("CLIENT: Restoring my hand locally because server broadcast didn't include it, and it wasn't my play.");
+                    myPlayerAfterServerUpdate.hand = myCurrentKnownHand;
+                } else {
+                    // It was my play, and server sent undefined hand. This implies my hand should be based on server's handCount.
+                    // If handCount is 0, it will render as empty. If handCount > 0 but hand is undefined, this is an issue.
+                    // For now, if it was my play and hand is undefined, we trust server's handCount and don't restore.
+                    // The server *should* send the updated (cards removed) hand array for me after my play.
+                    console.log("CLIENT: My play, server sent undefined hand. Relying on handCount. My hand array will be empty for render unless server sends it.");
+                }
             }
         }
+
+
         if (previousGameState && ( (previousGameState.currentPlayerId === myUserId && currentGameState.currentPlayerId !== myUserId) || (!currentGameState.lastHandInfo && previousGameState.lastHandInfo && currentGameState.currentPlayerId === myUserId) ) ) {
             selectedCards = [];
             clearHintsAndSelection(true);
