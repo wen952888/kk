@@ -864,22 +864,49 @@ socket.on('gameStarted', (initialGameState) => {
         renderRoomView(initialGameState);
     }
 });
+
+// --- MODIFICATION START ---
 socket.on('gameStateUpdate', (newState) => {
     if (currentView === 'roomView' && currentRoomId === newState.roomId) {
-        console.log('CLIENT: gameStateUpdate received');
+        console.log('CLIENT: gameStateUpdate received', JSON.parse(JSON.stringify(newState)));
+
+        let myCurrentHand = null;
+        // Try to get the hand from the current client state before it's overwritten
+        if (currentGameState && currentGameState.players) {
+            const myPlayerInOldState = currentGameState.players.find(p => p.userId === myUserId);
+            if (myPlayerInOldState && myPlayerInOldState.hand && Array.isArray(myPlayerInOldState.hand)) {
+                // Ensure it's a valid hand array before deep copying
+                myCurrentHand = JSON.parse(JSON.stringify(myPlayerInOldState.hand));
+            }
+        }
+
         previousGameState = currentGameState ? JSON.parse(JSON.stringify(currentGameState)) : null;
         currentGameState = newState;
+
+        // If the new state for 'me' has an undefined hand, but I previously had a valid hand
+        // and I am not marked as finished, restore my hand.
+        if (myCurrentHand && myCurrentHand.length > 0) {
+            const myPlayerInNewState = currentGameState.players.find(p => p.userId === myUserId);
+            if (myPlayerInNewState && !myPlayerInNewState.finished && myPlayerInNewState.hand === undefined) {
+                console.log("CLIENT: Restoring my hand locally as broadcast didn't include it for gameStateUpdate.");
+                myPlayerInNewState.hand = myCurrentHand;
+            }
+        }
+
+        // Original logic for clearing selected cards if turn changes etc.
         if (previousGameState && ( (previousGameState.currentPlayerId === myUserId && currentGameState.currentPlayerId !== myUserId) ||
             (!currentGameState.lastHandInfo && previousGameState.lastHandInfo && currentGameState.currentPlayerId === myUserId) )
            ) {
             selectedCards = [];
             clearHintsAndSelection(true);
         }
-        renderRoomView(currentGameState);
+        renderRoomView(currentGameState); // Render with potentially restored hand
     } else if (currentRoomId && currentRoomId !== newState.roomId) {
         console.warn("Received gameStateUpdate for a different room. Ignoring.");
     }
 });
+// --- MODIFICATION END ---
+
 socket.on('invalidPlay', ({ message }) => {
     const gameStatusDisp = document.getElementById('gameStatusDisplay');
     displayMessage(gameStatusDisp, `操作无效: ${message}`, true);
