@@ -1,7 +1,4 @@
 // public/client.js
-// --- (所有之前的 const, let, DOM Element declarations, utility functions - 保持不变) ---
-// (我将直接粘贴 fanCards 和 renderPlayerCards 的修改版本，其余部分假设与您上一个完整版 client.js 相同)
-
 const socket = io({
     reconnectionAttempts: 5,
     reconnectionDelay: 3000
@@ -100,21 +97,18 @@ function fanCards(cardContainer, cardElements, areaId) {
             card.style.transform = '';
             card.style.left = '';
             card.style.top = '';
-            // CSS handles negative margin for overlap:
-            // #myHand.myHand .card { margin-left: -110px; }
-            // #myHand.myHand .card:first-child { margin-left: 0; }
+            // Ensure card is not absolutely positioned by JS if CSS expects it to be a flex item
+            card.style.position = ''; // Clears inline position, CSS rule for #myHand .card takes over
         });
     } else { // Opponent hands - Stacked deck effect
         const offsetXPerCard = 1;
         const offsetYPerCard = 1;
-        // Show distinct offset for a few cards, then stack perfectly
-        const maxVisibleStackedCards = Math.min(numCards, 3); // Adjust for visual preference
+        const maxVisibleStackedCards = Math.min(numCards, 3); // Show offset for up to 3 cards
 
         cardElements.forEach((card, i) => {
             // CSS should set position: absolute for .opponentHand .card
             let currentOffsetX = 0;
             let currentOffsetY = 0;
-
             if (i < maxVisibleStackedCards) {
                 currentOffsetX = i * offsetXPerCard;
                 currentOffsetY = i * offsetYPerCard;
@@ -123,8 +117,8 @@ function fanCards(cardContainer, cardElements, areaId) {
                 currentOffsetY = (maxVisibleStackedCards - 1) * offsetYPerCard;
             }
             card.style.transform = `translate(${currentOffsetX}px, ${currentOffsetY}px)`;
-            card.style.zIndex = i; // Card added later (higher index) is visually on top
-            card.style.opacity = '1'; // Ensure card back is visible
+            card.style.zIndex = i;
+            card.style.opacity = '1';
         });
     }
 }
@@ -133,8 +127,15 @@ function getCardImageFilename(cardData) { if (!cardData || typeof cardData.rank 
 function renderCard(cardData, isHidden, isCenterPileCard = false) { const cardDiv = document.createElement('div'); cardDiv.classList.add('card'); if (isHidden || !cardData) { cardDiv.classList.add('hidden'); } else { cardDiv.classList.add('visible'); const filename = getCardImageFilename(cardData); if (filename) { cardDiv.style.backgroundImage = `url('/images/cards/${filename}')`; cardDiv.dataset.suit = cardData.suit; cardDiv.dataset.rank = cardData.rank; } else { cardDiv.textContent = `${cardData.rank || '?'}${getSuitSymbol(cardData.suit)}`; cardDiv.classList.add(getSuitClass(cardData.suit)); console.error("Failed to generate filename for card:", cardData, "Using text fallback."); } } return cardDiv; }
 
 function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
-    // console.log(`renderPlayerCards for ${playerData.username}, isMe: ${isMe}, hand:`, playerData.hand ? JSON.parse(JSON.stringify(playerData.hand)) : 'undefined');
-    container.innerHTML = ''; // CRITICAL: Clear previous cards to prevent ghosting/duplicates
+    if (isMe) {
+        // console.log(`renderPlayerCards for ME (${playerData.username}). Hand from state:`, playerData.hand ? JSON.parse(JSON.stringify(playerData.hand)) : 'undefined or empty');
+    }
+    // CRITICAL: Thoroughly clear the container.
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
+    // container.innerHTML = ''; // Alternative, but the loop above is often safer with event listeners.
+
     const cardElements = [];
 
     if (isMe) {
@@ -168,7 +169,6 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
         } else if (playerData.handCount > 0) {
             for (let i = 0; i < playerData.handCount; i++) {
                 const cardElement = renderCard(null, true, false);
-                // CSS for .opponentHand .card should define specific smaller size
                 container.appendChild(cardElement);
                 cardElements.push(cardElement);
             }
@@ -223,7 +223,47 @@ socket.on('playerJoined', (newPlayerInfo) => { const gameStatusDisp = document.g
 socket.on('playerLeft', ({ userId, username, reason }) => { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (currentGameState && currentView === 'roomView') { console.log('Player left:', username, reason); previousGameState = JSON.parse(JSON.stringify(currentGameState)); const playerIdx = currentGameState.players.findIndex(p => p.userId === userId); if (playerIdx > -1) { currentGameState.players[playerIdx].connected = false; currentGameState.players[playerIdx].isReady = false; } renderRoomView(currentGameState); if (gameStatusDisp) displayMessage(gameStatusDisp, `${username} ${reason === 'disconnected' ? '断线了' : '离开了房间'}。`, true); } });
 socket.on('playerReconnected', (reconnectedPlayerInfo) => { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (currentView === 'roomView' && currentGameState) { console.log('Player reconnected:', reconnectedPlayerInfo.username); previousGameState = JSON.parse(JSON.stringify(currentGameState)); const player = currentGameState.players.find(p => p.userId === reconnectedPlayerInfo.userId); if (player) { Object.assign(player, reconnectedPlayerInfo, {connected: true});} else { console.warn("Reconnected player not found in current game state, adding fresh."); currentGameState.players.push({ ...reconnectedPlayerInfo, score:0, hand:undefined, handCount:0, role:null, finished:false, connected:true }); currentGameState.players.sort((a,b) => a.slot - b.slot); } renderRoomView(currentGameState); if (gameStatusDisp) displayMessage(gameStatusDisp, `${reconnectedPlayerInfo.username} 重新连接。`, false, true); } else if (currentView === 'roomView' && !currentGameState) { socket.emit('requestGameState', (state) => { if(state) { currentGameState = state; previousGameState = null; renderRoomView(currentGameState); if (gameStatusDisp) displayMessage(gameStatusDisp, `${reconnectedPlayerInfo.username} 重新连接。`, false, true); } }); } });
 socket.on('gameStarted', (initialGameState) => { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (currentView === 'roomView' && currentRoomId === initialGameState.roomId) { console.log('Game started event received!', initialGameState); previousGameState = currentGameState; currentGameState = initialGameState; if (gameStatusDisp) displayMessage(gameStatusDisp, '游戏开始！祝你好运！', false, true); selectedCards = []; clearHintsAndSelection(true); renderRoomView(initialGameState); } else { console.warn("Received gameStarted for a room I'm not in or not viewing:", initialGameState.roomId, "My current room:", currentRoomId); } });
-socket.on('gameStateUpdate', (newState) => { if (currentView === 'roomView' && currentRoomId === newState.roomId) { let myCurrentHand = null; if (currentGameState && currentGameState.players) { const myPlayerInOldState = currentGameState.players.find(p => p.userId === myUserId); if (myPlayerInOldState && myPlayerInOldState.hand && Array.isArray(myPlayerInOldState.hand)) { myCurrentHand = JSON.parse(JSON.stringify(myPlayerInOldState.hand)); } } previousGameState = currentGameState ? JSON.parse(JSON.stringify(currentGameState)) : null; currentGameState = newState; if (myCurrentHand && myCurrentHand.length > 0) { const myPlayerInNewState = currentGameState.players.find(p => p.userId === myUserId); if (myPlayerInNewState && !myPlayerInNewState.finished && myPlayerInNewState.hand === undefined) { myPlayerInNewState.hand = myCurrentHand; } } if (previousGameState && ( (previousGameState.currentPlayerId === myUserId && currentGameState.currentPlayerId !== myUserId) || (!currentGameState.lastHandInfo && previousGameState.lastHandInfo && currentGameState.currentPlayerId === myUserId) ) ) { selectedCards = []; clearHintsAndSelection(true); } renderRoomView(currentGameState); updateGameStatusDisplayDOM(currentGameState); } else if (currentRoomId && currentRoomId !== newState.roomId) { console.warn("Received gameStateUpdate for a different room. Ignoring."); } });
+
+socket.on('gameStateUpdate', (newState) => {
+    if (currentView === 'roomView' && currentRoomId === newState.roomId) {
+        // Log the received new state and specifically your hand in it
+        console.log("CLIENT: Received gameStateUpdate. New state:", JSON.parse(JSON.stringify(newState)));
+        const myPlayerDataInNewState = newState.players.find(p => p.userId === myUserId);
+        if (myPlayerDataInNewState) {
+            console.log("CLIENT: My hand in received newState:", myPlayerDataInNewState.hand ? JSON.parse(JSON.stringify(myPlayerDataInNewState.hand)) : 'undefined');
+        }
+
+        let myCurrentHand = null;
+        if (currentGameState && currentGameState.players) {
+            const myPlayerInOldState = currentGameState.players.find(p => p.userId === myUserId);
+            if (myPlayerInOldState && myPlayerInOldState.hand && Array.isArray(myPlayerInOldState.hand)) {
+                myCurrentHand = JSON.parse(JSON.stringify(myPlayerInOldState.hand));
+            }
+        }
+
+        previousGameState = currentGameState ? JSON.parse(JSON.stringify(currentGameState)) : null;
+        currentGameState = newState; // Apply the new state from the server
+
+        // Hand restoration logic (if server sometimes doesn't send hand for self in general update)
+        if (myCurrentHand && myCurrentHand.length > 0) {
+            const myPlayerInNewStateUpdated = currentGameState.players.find(p => p.userId === myUserId);
+            if (myPlayerInNewStateUpdated && !myPlayerInNewStateUpdated.finished && myPlayerInNewStateUpdated.hand === undefined) {
+                console.warn("CLIENT: Restoring my hand locally as broadcast didn't include it.");
+                myPlayerInNewStateUpdated.hand = myCurrentHand;
+            }
+        }
+
+        if (previousGameState && ( (previousGameState.currentPlayerId === myUserId && currentGameState.currentPlayerId !== myUserId) || (!currentGameState.lastHandInfo && previousGameState.lastHandInfo && currentGameState.currentPlayerId === myUserId) ) ) {
+            selectedCards = [];
+            clearHintsAndSelection(true);
+        }
+        renderRoomView(currentGameState); // Render with the (potentially restored) new state
+        updateGameStatusDisplayDOM(currentGameState);
+    } else if (currentRoomId && currentRoomId !== newState.roomId) {
+        console.warn("Received gameStateUpdate for a different room. Ignoring.");
+    }
+});
+
 socket.on('invalidPlay', ({ message }) => { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (gameStatusDisp) displayMessage(gameStatusDisp, `操作无效: ${message}`, true); if (currentGameState && currentGameState.status === 'playing' && currentGameState.currentPlayerId === myUserId) { updateRoomControls(currentGameState); } });
 socket.on('gameOver', (results) => { if (currentView === 'roomView' && results && currentRoomId === results.roomId) { console.log('Game Over event received:', results); if (currentGameState) { currentGameState.status = 'finished'; if(results.finalScores) currentGameState.finalScores = results.finalScores; if(results.scoreChanges) currentGameState.scoreChanges = results.scoreChanges; if(results.result) currentGameState.gameResultText = results.result; } showGameOver(results); } else if (currentView === 'roomView' && !results && currentGameState && currentGameState.roomId === currentRoomId) { console.log('Game Over event received (no detailed results). Using current state.'); showGameOver(currentGameState); } else { console.warn("Received gameOver for a room I'm not in/viewing, or results are missing roomId. My room:", currentRoomId, "Results:", results); } });
 socket.on('gameStartFailed', ({ message }) => { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (currentView === 'roomView' && gameStatusDisp) { displayMessage(gameStatusDisp, `游戏开始失败: ${message}`, true); if (currentGameState) { currentGameState.players.forEach(p => p.isReady = false); isReadyForGame = false; renderRoomView(currentGameState); } } });
