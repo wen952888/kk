@@ -4,15 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KK 在线纸牌</title>
-    <link rel="stylesheet" href="style.css?v=baseline"> <!-- 使用一个明确的版本号 -->
+    <link rel="stylesheet" href="style.css?v=1.0.15"> <!-- 版本号递增 -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#e0e0e0"/>
     <link rel="apple-touch-icon" href="/images/icon-192x192.png">
 </head>
 <body>
-
+    <!-- Loading, Login/Register, Lobby Views remain the same -->
     <div id="loadingView" class="view view-block"><p>连接中...</p></div>
-
     <div id="loginRegisterView" class="view hidden-view">
         <h2>登录 / 注册</h2>
         <div id="authFormContainer">
@@ -21,7 +20,6 @@
         </div>
         <p id="authMessage" class="message"></p>
     </div>
-
     <div id="lobbyView" class="view hidden-view">
         <h2>游戏大厅</h2>
         <p>欢迎, <span id="lobbyUsername">玩家</span>! <button id="logoutButton" class="inline-button">登出</button></p>
@@ -30,8 +28,8 @@
         <p id="lobbyMessage" class="message"></p>
     </div>
 
+
     <div id="roomView" class="view hidden-view view-flex">
-        <!-- 游戏区域 -->
         <div id="gameArea">
             <!-- 顶栏信息 -->
             <div id="gameInfoBar">
@@ -42,8 +40,8 @@
                 <button id="leaveRoomButton">离开</button>
             </div>
 
-            <!-- 上方玩家 -->
-            <div id="playerAreaTop" class="playerArea">
+            <!-- 对手玩家区域 -->
+            <div id="playerAreaTop" class="playerArea opponent-area opponent-top">
                 <div class="playerHeader">
                     <div class="player-avatar"></div>
                     <div class="player-details"><span class="playerName"></span><span class="playerRole"></span></div>
@@ -51,9 +49,15 @@
                 <div class="playerInfo"></div>
                 <div class="playerCards opponentHand"></div>
             </div>
-
-            <!-- 左侧玩家 -->
-            <div id="playerAreaLeft" class="playerArea">
+            <div id="playerAreaLeft" class="playerArea opponent-area opponent-left">
+                <div class="playerHeader">
+                    <div class="player-avatar"></div>
+                    <div class="player-details"><span class="playerName"></span><span class="playerRole"></span></div>
+                </div>
+                <div class="playerInfo"></div>
+                <div class="playerCards opponentHand"></div>
+            </div>
+            <div id="playerAreaRight" class="playerArea opponent-area opponent-right">
                 <div class="playerHeader">
                     <div class="player-avatar"></div>
                     <div class="player-details"><span class="playerName"></span><span class="playerRole"></span></div>
@@ -71,19 +75,14 @@
                 </div>
             </div>
 
-            <!-- 右侧玩家 -->
-            <div id="playerAreaRight" class="playerArea">
-                <div class="playerHeader">
-                    <div class="player-avatar"></div>
-                    <div class="player-details"><span class="playerName"></span><span class="playerRole"></span></div>
-                </div>
-                <div class="playerInfo"></div>
-                <div class="playerCards opponentHand"></div>
-            </div>
-
             <!-- 自己的区域 (最下方) -->
             <div id="playerAreaBottom" class="playerArea selfArea">
-                <div class="self-top-info">
+                <!-- 自己的手牌 (最上面) -->
+                <div id="myHand" class="playerCards myHand">
+                    <!-- 卡牌由JS动态生成 -->
+                </div>
+                <!-- 自己头像信息和准备按钮 (中间) -->
+                <div class="self-player-info-container">
                     <div class="playerHeader">
                         <div class="player-avatar"></div>
                         <div class="player-details">
@@ -93,16 +92,12 @@
                     <div class="playerInfo">总分: 0</div>
                     <button id="readyButton" class="hidden-view">准备</button>
                 </div>
-                <div id="myHand" class="playerCards myHand"></div>
-                <div class="my-actions-container hidden-view"> <!-- Buttons below hand -->
-                    <div class="actions-group left-actions">
-                        <button id="sortHandButton" title="整理">整理</button>
-                        <button id="hintButton" title="提示">提示</button>
-                    </div>
-                    <div class="actions-group right-actions">
-                        <button id="passTurnButton" title="不要">不要</button>
-                        <button id="playSelectedCardsButton" title="出牌" disabled>出牌</button>
-                    </div>
+                <!-- 操作按钮 (最下面) -->
+                <div class="my-actions-container hidden-view">
+                    <button id="sortHandButton" title="整理">整理</button>
+                    <button id="hintButton" title="提示">提示</button>
+                    <button id="passTurnButton" title="不要">不要</button>
+                    <button id="playSelectedCardsButton" title="出牌" disabled>出牌</button>
                 </div>
             </div>
 
@@ -110,7 +105,7 @@
             <div id="gameStatusDisplay">等待玩家...</div>
         </div>
 
-         <div id="gameOverOverlay" class="overlay hidden-view view-flex">
+        <div id="gameOverOverlay" class="overlay hidden-view view-flex">
              <div class="overlay-content">
                  <h3 id="gameOverTitle">游戏结束!</h3>
                  <p id="gameOverReason"></p>
@@ -121,6 +116,6 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="client.js?v=baseline"></script> <!-- Use corresponding client.js version -->
+    <script src="client.js?v=1.0.15"></script>
 </body>
 </html>
