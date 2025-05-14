@@ -1,635 +1,117 @@
 /* public/style.css */
-/* General Styles and View Styles (largely based on previous versions) */
-html, body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #e0e0e0; /* Light grey background for the page */
-    color: #333;
-    font-size: 16px;
-    -webkit-tap-highlight-color: transparent;
-}
+/* ... (之前的 login/lobby/general view styles - 保持不变) ... */
+html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #e0e0e0; color: #333; font-size: 16px; -webkit-tap-highlight-color: transparent; }
+.hidden-view { display: none !important; } .view-block { display: block !important; } .view-flex { display: flex !important; flex-direction: column; } .overlay.view-flex { justify-content: center; align-items: center; }
+.view { background-color: #f5f5f5; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 10px; margin: 20px auto; padding: 25px; box-sizing: border-box; }
+#loginRegisterView, #lobbyView, #loadingView { width: 90%; max-width: 600px; color: #333; }
+#loadingView.view-block { text-align: center; padding-top: 50px; font-size: 1.2em; color: #555; background-color: transparent; box-shadow: none;}
+#authFormContainer { display: flex; flex-wrap: wrap; justify-content: space-around; margin-bottom: 20px; gap: 20px; }
+.formSection { border: none; padding: 20px; border-radius: 8px; width: 100%; max-width: 300px; box-sizing: border-box; background-color: #f0f0f0; }
+input[type="text"], input[type="password"], input[type="tel"] { border: 1px solid #ccc; padding: 10px; border-radius: 4px; margin: 5px 0; width: calc(100% - 22px); box-sizing: border-box; font-size: 1em; }
+#roomList { border: 1px solid #d8d8d8; background-color: #efefef; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto;}
+.room-item { border-bottom: 1px solid #e0e0e0; color: #444; padding: 10px 5px; display: flex; justify-content: space-between; align-items: center;}
+.room-item:last-child { border-bottom: none; }
+.room-item span { margin-right: 10px; }
+.room-item button { font-size: 0.85em; padding: 6px 10px; }
+button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; transition: background-color 0.2s ease; margin: 3px 0; }
+button:hover { background-color: #0056b3; }
+button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
+.inline-button { padding: 4px 8px; font-size: 0.8em; margin-left: 8px; }
+.message { margin-top: 12px; font-weight: bold; text-align: center; font-size: 0.85em; min-height: 1.1em; padding: 6px; border-radius: 4px; color: #444;}
+.message.error { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
+.message.success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
 
-.hidden-view {
-    display: none !important;
-}
-
-.view-block {
-    display: block !important;
-}
-
-.view-flex {
-    display: flex !important;
-    flex-direction: column;
-}
-
-.overlay.view-flex {
-    justify-content: center;
-    align-items: center;
-}
-
-.view {
-    background-color: #f5f5f5; /* Slightly off-white for view backgrounds */
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    border-radius: 10px;
-    margin: 20px auto;
-    padding: 25px;
-    box-sizing: border-box;
-}
-
-#loginRegisterView, #lobbyView, #loadingView {
-    width: 90%;
-    max-width: 600px; /* Max width for centered views */
-    color: #333;
-}
-
-#loadingView.view-block {
-    text-align: center;
-    padding-top: 50px;
-    font-size: 1.2em;
-    color: #555;
-    background-color: transparent;
-    box-shadow: none;
-}
-
-#authFormContainer {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-around;
-    margin-bottom: 20px;
-    gap: 20px;
-}
-
-.formSection {
-    border: none; /* Was: border: 1px solid #ddd; */
-    padding: 20px;
-    border-radius: 8px;
-    width: 100%;
-    max-width: 300px; /* Max width for individual auth forms */
-    box-sizing: border-box;
-    background-color: #f0f0f0; /* Light background for form sections */
-}
-
-input[type="text"], input[type="password"], input[type="tel"] {
-    border: 1px solid #ccc;
-    padding: 10px;
-    border-radius: 4px;
-    margin: 5px 0;
-    width: calc(100% - 22px); /* Full width minus padding and border */
-    box-sizing: border-box;
-    font-size: 1em;
-}
-
-#roomList {
-    border: 1px solid #d8d8d8;
-    background-color: #efefef;
-    padding: 10px;
-    border-radius: 5px;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.room-item {
-    border-bottom: 1px solid #e0e0e0;
-    color: #444;
-    padding: 10px 5px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.room-item:last-child {
-    border-bottom: none;
-}
-
-.room-item span {
-    margin-right: 10px;
-}
-
-.room-item button {
-    font-size: 0.85em;
-    padding: 6px 10px;
-}
-
-button {
-    padding: 10px 15px;
-    background-color: #007bff; /* Primary button color */
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9em;
-    /* transition: background-color 0.2s ease; */ /* Temporarily disable transitions */
-    margin: 3px 0;
-}
-
-button:hover {
-    background-color: #0056b3;
-}
-
-button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-    color: #666;
-}
-
-.inline-button {
-    padding: 4px 8px;
-    font-size: 0.8em;
-    margin-left: 8px;
-}
-
-.message {
-    margin-top: 12px;
-    font-weight: bold;
-    text-align: center;
-    font-size: 0.85em;
-    min-height: 1.1em;
-    padding: 6px;
-    border-radius: 4px;
-    color: #444;
-}
-
-.message.error {
-    color: #721c24; /* Bootstrap danger text */
-    background-color: #f8d7da; /* Bootstrap danger background */
-    border: 1px solid #f5c6cb; /* Bootstrap danger border */
-}
-
-.message.success {
-    color: #155724; /* Bootstrap success text */
-    background-color: #d4edda; /* Bootstrap success background */
-    border: 1px solid #c3e6cb; /* Bootstrap success border */
-}
-
-/* --- Game View Layout --- */
-#roomView {
-    width: 100%;
-    height: 100%;
-    padding: 0;
-    margin: 0; /* Ensure roomView takes full viewport */
-    background-color: #3d3d3d; /* Darker background for game area focus */
-    display: flex; /* Already set in .view-flex but good to be explicit */
-    flex-direction: column;
-    border-radius: 0; /* Full screen, no rounded corners */
-    box-shadow: none; /* No shadow for full screen view */
-}
-
-#gameArea {
-    flex-grow: 1;
-    position: relative;
-    padding-top: 45px; /* Space for gameInfoBar */
-    padding-bottom: 25px; /* Space at the bottom */
-    box-sizing: border-box;
-    background-color: #505050; /* Slightly lighter than roomView for contrast */
-    overflow: hidden; /* Prevent scrollbars on game area itself */
-}
-
-#gameInfoBar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 10px;
-    font-size: 0.9em;
-    color: #f0f0f0; /* Light text for dark bar */
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 40px;
-    line-height: 40px;
-    z-index: 300;
-    background-color: rgba(40, 40, 40, 0.9); /* Darker, semi-transparent bar */
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-}
-#gameInfoBar .room-name {
-    font-weight: bold;
-}
-#gameInfoBar .room-id {
-    opacity: 0.7;
-    margin-left: 8px;
-    font-size: 0.9em;
-}
-#gameInfoBar #leaveRoomButton {
-    padding: 5px 10px;
-    font-size: 0.8em;
-    background-color: #e57373; /* A reddish leave button */
-    border: none;
-    color:white;
-    border-radius: 4px;
-    margin-top: auto; /* Vertically center if bar height changes */
-    margin-bottom: auto;
-}
-
-.playerArea {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 3px;
-    box-sizing: border-box;
-    min-width: 80px; /* Minimum width for player info */
-    color: #dadada; /* Lighter text for player info on dark background */
-}
-
-.playerHeader {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 1px;
-}
-
-.player-avatar {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background-color: #777; /* Darker placeholder for avatar */
-    background-size: cover;
-    background-position: center;
-    flex-shrink: 0;
-    border: 1px solid #999;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 2px;
-}
-.player-avatar img.alarm-icon {
-    width: 20px;
-    height: 20px;
-}
-
-.player-details {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-.playerName {
-    font-weight: bold;
-    font-size: 0.75em;
-    color: #f5f5f5; /* Bright text for name */
-    white-space: nowrap;
-}
-.playerRole {
-    font-size: 0.65em;
-    font-style: italic;
-    color: #bbb; /* Subtler role text */
-}
-
-.playerInfo {
-    font-size: 0.6em;
-    line-height: 1.1;
-    color: #ccc;
-    width: 100%;
-    margin-top: 1px;
-}
-.playerInfo .ready { color: #66bb6a; } /* Green for ready */
-.playerInfo .not-ready { color: #ffa726; } /* Orange for not ready */
-.playerInfo .disconnected { color: #ef5350; font-style: italic; } /* Red for disconnected */
-.playerInfo .finished { color: #bdbdbd; font-style: italic; } /* Grey for finished */
-
-.opponent-area {
-    position: absolute;
-    z-index: 100;
-}
+/* --- Game View Layout (Copied from previous complete version, with selected card z-index fix) --- */
+#roomView { width: 100%; height: 100%; padding: 0; background-color: transparent; display: flex; flex-direction: column;}
+#gameArea { flex-grow: 1; position: relative; padding-top: 45px; padding-bottom: 25px; box-sizing: border-box; background-color: #e0e0e0; overflow: hidden; }
+#gameInfoBar { display: flex; justify-content: space-between; align-items: center; padding: 0 10px; font-size: 0.9em; color: #444; position: absolute; top: 0; left: 0; right: 0; height: 40px; line-height: 40px; z-index: 300; background-color: rgba(240, 240, 240, 0.9); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+#gameInfoBar .room-id { opacity: 0.7; margin-left: 8px; }
+#gameInfoBar #leaveRoomButton { padding: 5px 10px; font-size: 0.8em; background-color: #e57373; border: none; color:white; border-radius: 4px; margin-top: auto; margin-bottom: auto; }
+.playerArea { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 3px; box-sizing: border-box; min-width: 80px; }
+.playerHeader { display: flex; flex-direction: column; align-items: center; margin-bottom: 1px; }
+.player-avatar { width: 30px; height: 30px; border-radius: 50%; background-color: #d0d0d0; background-size: cover; background-position: center; flex-shrink: 0; border: 1px solid #b0b0b0; display: flex; justify-content: center; align-items: center; margin-bottom: 2px; }
+.player-avatar img.alarm-icon { width: 20px; height: 20px; }
+.player-details { display: flex; flex-direction: column; align-items: center; }
+.playerName { font-weight: bold; font-size: 0.75em; color: #333; white-space: nowrap; }
+.playerRole { font-size: 0.65em; font-style: italic; color: #555; }
+.playerInfo { font-size: 0.6em; line-height: 1.1; color: #666; width: 100%; margin-top: 1px;}
+.playerInfo .ready { color: #28a745; } .playerInfo .not-ready { color: #ffc107; } .playerInfo .disconnected { color: #dc3545; font-style: italic; } .playerInfo .finished { color: #6c757d; font-style: italic; }
+.opponent-area { position: absolute; z-index: 100; }
 .opponent-top { top: 5px; left: 50%; transform: translateX(-50%); padding-top: 0;}
 .opponent-left { top: 30%; left: 5px; transform: translateY(-50%); }
 .opponent-right { top: 30%; right: 5px; transform: translateY(-50%); }
-
-.opponentHand {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: auto; /* Auto width for cards */
-    min-width: 40px;
-    height: 50px; /* Approximate height of fanned cards */
-    position: relative;
-    margin-top: 2px;
-}
-.opponentHand .card {
-    position: absolute; /* For stacking */
-    width: 45px; /* Smaller cards for opponents */
-    height: 63px;
-    font-size: 0.6em; /* Smaller font for smaller cards */
-    border-radius: 3px;
-    box-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.1);
-}
-
-#centerArea {
-    position: absolute;
-    top: 45%; /* Adjusted for better centering */
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: auto; /* Let content define width */
-    max-width: 70%; /* Max width of center area */
-    min-width: 150px; /* Min width for center pile text */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 5px;
-    z-index: 50;
-    min-height: 120px; /* Adjusted from 230px, cards will define height */
-}
-#centerInfo {
-    text-align: center;
-    margin-bottom: 3px;
-    width: 100%;
-}
-#centerInfo #lastHandText {
-    font-size: 0.7em;
-    color: #ccc; /* Lighter text on dark background */
-    margin: 0 0 1px 0;
-}
-#centerInfo #lastHandTypeDisplay {
-    font-size: 0.75em;
-    color: #e0e0e0; /* Lighter text */
-    font-weight: bold;
-    min-height: 1em;
-}
-#centerPileArea {
-    display: flex;
-    flex-wrap: wrap; /* Allow cards to wrap if many */
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    min-height: 70px; /* Enough for one row of small cards, adjusts with card size */
-    padding: 2px;
-    box-sizing: border-box;
-    /* background-color: rgba(255,255,255,0.05); */ /* Optional subtle background for pile */
-    /* border-radius: 5px; */
-}
-#centerPileArea .card { /* Cards in the center pile */
-    position: relative; /* No absolute for center pile cards unless fanning */
-    margin: 2px;
-    width: 60px;  /* Smaller cards for center pile */
-    height: 84px;
-    font-size: 0.8em; /* Adjust font for smaller cards */
-    border-radius: 4px; /* Smaller radius */
-}
-
-#playerAreaBottom.selfArea {
-    position: absolute;
-    bottom: 25px; /* Space from bottom edge */
-    left: 0;
-    right: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0 5px;
-    box-sizing: border-box;
-    z-index: 200;
-}
-
-/* My Hand - THIS IS THE CRITICAL SECTION FOR TILING */
-#myHand.playerCards.myHand {
-    order: 1; /* Hand above info/buttons */
-    width: 100%;
-    max-width: 95vw; /* Max width of hand area */
-    min-height: 100px; /* Adjust based on card size, enough for one row */
-    overflow-x: auto;  /* Allow horizontal scrolling for tiled cards */
-    overflow-y: hidden;
-    display: flex;
-    justify-content: center; /* Center the tiled cards if they don't fill width */
-    align-items: flex-end;   /* Align cards to the bottom of this container */
-    padding-bottom: 5px;
-    margin-bottom: 5px;
-    scrollbar-width: thin;
-    scrollbar-color: #888 #555; /* Darker scrollbar */
-}
-
-#myHand.myHand .card {
-    position: relative; /* Keep relative for normal flow in flex container */
-    transform-origin: bottom center;
-    cursor: pointer;
-    flex-shrink: 0; /* Prevent cards from shrinking if not enough space */
-
-    /* --- MODIFICATION FOR TILING --- */
-    /* margin-left: -110px; */  /* REMOVE OR COMMENT OUT NEGATIVE MARGIN */
-    margin: 0 4px;           /* ADD small horizontal margin for spacing (tiling) */
-    /* --- END MODIFICATION --- */
-
-    width: 75px;  /* Adjust card width as needed for tiling */
-    height: 105px; /* Adjust card height proportionally */
-    font-size: 1em;  /* Adjust font size for these cards */
-    border-radius: 5px;
-
-    /* --- TEMPORARILY COMMENT OUT TRANSITIONS AND TRANSFORMS --- */
-    /* transition: transform 0.15s ease-out, box-shadow 0.15s ease-out; */
-    /* transform: none !important; */ /* Can try this to force no transform */
-}
-
-/* This might not be needed if all cards have consistent margin: 0 4px; */
-/*
-#myHand.myHand .card:first-child {
-    margin-left: 4px;
-}
-*/
-
-#myHand.myHand .card:hover {
-    /* transform: translateY(-30px) scale(1.07); */ /* COMMENTED OUT */
-    z-index: 200 !important;
-    box-shadow: 3px 3px 8px rgba(0,0,0,0.3); /* Slightly stronger shadow on hover */
-}
-#myHand.myHand .card.selected {
-    border: 3px solid #007bff;
-    /* transform: translateY(-35px) scale(1.08) !important; */ /* COMMENTED OUT */
-    z-index: 50 !important; /* Ensure selected is above others but below hover */
-    box-shadow: 2px 3px 7px rgba(0,0,0,0.25);
-}
-#myHand.myHand .card.hinted {
-    border: 3px dashed orange;
-    /* transform: translateY(-15px); */ /* COMMENTED OUT */
-    z-index: 40 !important; /* Hinted below selected */
-}
-#myHand.myHand .card.disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    /* transform: translateY(0) !important; */ /* COMMENTED OUT */
-    box-shadow: 1px 1px 2px rgba(0,0,0,0.08);
-    z-index: 5 !important; /* Disabled cards at the back */
-}
-/* --- END MY HAND SECTION --- */
-
-
-#playerAreaBottom .self-player-info-container {
-    order: 2; /* Info/buttons below hand */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 5px;
-}
-#playerAreaBottom .self-player-info-container .player-avatar {
-    width: 30px;
-    height: 30px;
-}
-#playerAreaBottom .self-player-info-container .playerHeader {
-    flex-direction: column;
-    align-items: center;
-}
-
-#readyButton {
-    padding: 3px 7px;
-    font-size: 0.7em;
-    margin-top: 2px;
-    /* transition: none; */ /* No transition for ready button */
-}
-#readyButton.ready {
-    background-color: #f44336; /* Red when ready (to cancel) */
-    border-color: #d32f2f;
-}
-
-.my-actions-container {
-    order: 3; /* Action buttons at the very bottom */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 5px; /* Space between buttons */
-    padding: 2px 0;
-    width: 100%;
-}
-.my-actions-container.hidden-view { /* Ensure this hides correctly */
-    display: none !important;
-}
-.my-actions-container button {
-    min-width: 45px;
-    height: 30px;
-    font-size: 0.75em;
-    border-radius: 3px;
-    padding: 0 5px;
-    /* transition: none; */ /* No transition for action buttons */
-}
+.opponentHand { display: flex; justify-content: center; align-items: center; width: auto; min-width: 40px; height: 50px; position: relative; margin-top: 2px; }
+.opponentHand .card { position: absolute; width: 45px; height: 63px; font-size: 0.6em; border-radius: 3px; box-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.1); }
+.opponentHand .card .rank { font-size: 0.9em; } .opponentHand .card .suit { font-size: 1em; }
+#centerArea { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: auto; max-width: 70%; min-width: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px; z-index: 50; min-height: 230px; }
+#centerInfo { text-align: center; margin-bottom: 3px; width: 100%; }
+#centerInfo #lastHandText { font-size: 0.7em; color: #666; margin: 0 0 1px 0; }
+#centerInfo #lastHandTypeDisplay { font-size: 0.75em; color: #444; font-weight: bold; min-height: 1em; }
+#centerPileArea { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; width: 100%; min-height: 215px; padding: 2px; box-sizing: border-box; }
+#centerPileArea .card { position: relative; margin: 2px; width: 150px; height: 210px; font-size: 1.3em; border-radius: 8px; }
+#playerAreaBottom.selfArea { position: absolute; bottom: 25px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; padding: 0 5px; box-sizing: border-box; z-index: 200; }
+#myHand.playerCards.myHand { order: 1; width: 100%; max-width: 95vw; min-height: 230px; overflow-x: auto; overflow-y: hidden; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 5px; margin-bottom: 5px; scrollbar-width: thin; scrollbar-color: #b0b0b0 #e0e0e0; }
+#myHand.playerCards.myHand::-webkit-scrollbar { height: 4px; }
+#playerAreaBottom .self-player-info-container { order: 2; display: flex; flex-direction: column; align-items: center; margin-bottom: 5px; }
+#playerAreaBottom .self-player-info-container .player-avatar { width: 30px; height: 30px;}
+#playerAreaBottom .self-player-info-container .playerHeader { flex-direction: column; align-items: center; }
+#readyButton { padding: 3px 7px; font-size: 0.7em; margin-top: 2px; }
+#readyButton.ready { background-color: #f44336; border-color: #d32f2f; }
+.my-actions-container { order: 3; display: flex; justify-content: center; align-items: center; gap: 5px; padding: 2px 0; width: 100%; }
+.my-actions-container.hidden-view { display: none !important; }
+.my-actions-container button { min-width: 45px; height: 30px; font-size: 0.75em; border-radius: 3px; padding: 0 5px; }
 #playSelectedCardsButton { background-color: #4CAF50; border: 1px solid #388E3C; }
 #playSelectedCardsButton:disabled { background-color: #9E9E9E; border-color: #757575; }
-
-
-/* General Card Styles (if not overridden by specific area) */
-.card {
-    border: 1px solid #a0a0a0;
-    border-radius: 8px; /* Default radius */
-    background-color: #fff; /* Card face background */
-    color: #222; /* Text color on card face */
-    box-shadow: 2px 2px 4px rgba(0,0,0,0.12);
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    display: flex; /* For centering text content if used */
-    flex-direction: column;
-    justify-content: space-around; /* Example for text cards */
-    align-items: center;
-    overflow: hidden;
-    user-select: none;
-    padding: 6px 3px; /* Padding inside the card for text */
-    box-sizing: border-box;
-    /* transition: none; */ /* Global disable of transitions for cards for testing */
-}
-.card.hidden {
-    background-image: url('/images/card-back.png'); /* Ensure this path is correct */
-    border-color: #777;
-    /* To hide text content if any */
-    color: transparent;
-    text-indent: -9999px;
-}
-.card .rank { font-weight: bold; font-size: 1.4em; /* Relative to card's font-size */ }
+.card { border: 1px solid #a0a0a0; border-radius: 8px; width: 150px; height: 210px; background-color: #fff; color: #222; font-size: 1.3em; box-shadow: 2px 2px 4px rgba(0,0,0,0.12); background-size: contain; background-repeat: no-repeat; background-position: center; display: flex; flex-direction: column; justify-content: space-around; align-items: center; overflow: hidden; flex-shrink: 0; transition: transform 0.15s ease-out, box-shadow 0.15s ease-out; user-select: none; padding: 6px 3px; box-sizing: border-box; }
+.card.hidden { background-image: url('/images/card-back.png'); border-color: #777; }
+.card .rank { font-weight: bold; font-size: 1.4em; }
 .card .suit { font-size: 1.6em; }
 .card.hearts .suit, .card.diamonds .suit, .card.hearts .rank, .card.diamonds .rank { color: #d32f2f; }
 .card.spades .suit, .card.clubs .suit, .card.spades .rank, .card.clubs .rank { color: #333; }
 
+/* My Hand Specific Card Interaction & Overlap */
+#myHand.myHand .card {
+    position: relative; transform-origin: bottom center; cursor: pointer;
+    /* z-index will be set by JS in fanCards/renderPlayerCards based on DOM order (0, 1, 2...) */
+    margin-left: -110px; /* (150px card width - 40px visible part = 110px overlap) */
+    /* Removed z-index transition from here, will be handled by JS or direct class application */
+}
+#myHand.myHand .card:first-child { margin-left: 0; }
 
-.playerArea.current-turn .player-avatar { /* Highlight current player */
-    box-shadow: 0 0 5px 1px gold;
+#myHand.myHand .card:hover {
+    transform: translateY(-30px) scale(1.07);
+    z-index: 200 !important; /* Hover should be visually on top of non-active cards */
+    box-shadow: 3px 3px 8px rgba(0,0,0,0.2);
+}
+#myHand.myHand .card.selected {
+    border: 3px solid #007bff;
+    transform: translateY(-35px) scale(1.08) !important; /* Make sure transform applies */
+    /* z-index is handled by JS on selection to ensure it's above immediate neighbours only if needed */
+    /* For now, a moderate z-index that's higher than the base z-index from JS (0-12) */
+    z-index: 50 !important; /* Let's try this. If still covered, JS intervention is needed */
+    box-shadow: 2px 3px 7px rgba(0,0,0,0.2);
+}
+#myHand.myHand .card.hinted {
+    border: 3px dashed orange;
+    transform: translateY(-15px);
+    z-index: 40 !important;
+}
+#myHand.myHand .card.disabled {
+    opacity: 0.6; cursor: not-allowed;
+    transform: translateY(0) !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.08);
+    z-index: 5 !important;
 }
 
-#gameStatusDisplay  {
-    position: absolute;
-    bottom: 3px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: rgba(30, 30, 30, 0.88); /* Darker status display */
-    padding: 2px 7px;
-    border-radius: 8px;
-    font-size: 0.7em;
-    color: #f0f0f0; /* Light text */
-    z-index: 350;
-    min-height: 1em;
-    white-space: nowrap;
-    box-shadow: 0 1px 1px rgba(0,0,0,0.05);
-}
-
-.overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
-    z-index: 1000;
-    /* display: flex; Already handled by .view-flex */
-    /* justify-content: center; */
-    /* align-items: center; */
-}
-.overlay-content {
-    background-color: #fefefe;
-    padding: 18px;
-    border-radius: 8px;
-    text-align: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
-    max-width: 90%;
-    width: 380px;
-    color: #333;
-}
+.playerArea.current-turn .player-avatar { box-shadow: 0 0 5px 1px gold; }
+#gameStatusDisplay  { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); background-color: rgba(230, 230, 230, 0.88); padding: 2px 7px; border-radius: 8px; font-size: 0.7em; color: #333; z-index: 350; min-height: 1em; white-space: nowrap; box-shadow: 0 1px 1px rgba(0,0,0,0.05); }
+.overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); z-index: 1000; }
+.overlay-content { background-color: #fefefe; padding: 18px; border-radius: 8px; text-align: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22); max-width: 90%; width: 380px; color: #333;}
 #gameOverScores p { margin: 5px 0; font-size: 0.95em; }
 #gameOverScores .score-plus { color: #28a745; font-weight: bold; }
 #gameOverScores .score-minus { color: #dc3545; font-weight: bold; }
 #gameOverScores .score-zero { color: #6c757d; }
-
-.hand-count-display {
-    font-size: 0.7em;
-    color: #fff;
-    background-color: rgba(0,0,0,0.7);
-    padding: 1px 4px;
-    border-radius: 6px;
-    z-index: 160; /* Above opponent cards */
-    position: absolute;
-    bottom: -6px; /* Position below card stack */
-    left: 50%;
-    transform: translateX(-50%);
-    white-space: nowrap;
-}
-.opponent-left .hand-count-display, .opponent-right .hand-count-display {
-    bottom: auto; /* Reset bottom */
-    top: calc(100% - 10px); /* Position below for side players */
-}
-
-/* Responsive Adjustments (Simplified, adjust card sizes and margins primarily) */
-@media (max-height: 700px), (max-width: 800px) { /* More aggressive breakpoints for smaller screens */
-    #gameArea { padding-top: 35px; padding-bottom: 20px; }
-    #gameInfoBar { height: 30px; font-size:0.8em; }
-
-    #myHand.myHand .card { width: 60px; height: 84px; font-size: 0.9em; margin: 0 3px;}
-    #centerPileArea .card { width: 50px; height: 70px; font-size: 0.7em; }
-    .opponentHand .card { width: 40px; height: 56px; }
-
-    #myHand.playerCards.myHand { min-height: 90px; } /* Adjust to new card height */
-    #centerArea { min-height: 80px; top: 45%; }
-    #centerPileArea { min-height: 75px; }
-    .opponentHand { height: 65px; }
-
-    .my-actions-container button { min-width: 40px; height: 28px; font-size: 0.7em;}
-    .player-avatar { width: 26px; height: 26px; }
-    #gameStatusDisplay { font-size: 0.65em; padding: 1px 5px; bottom: 2px;}
-    .hand-count-display { font-size: 0.65em; bottom: -5px; }
-    #playerAreaBottom.selfArea { bottom: 20px; }
-}
-
-@media (max-width: 600px) { /* Even smaller screens */
-    #myHand.myHand .card { width: 50px; height: 70px; font-size: 0.8em; margin: 0 2px;}
-    #centerPileArea .card { width: 40px; height: 56px; font-size: 0.6em; }
-    .opponentHand .card { width: 35px; height: 49px; }
-
-    #myHand.playerCards.myHand { min-height: 75px; }
-    #centerArea { top: 42%; min-height: 65px; }
-    #centerPileArea { min-height: 60px; }
-    .opponentHand { height: 60px; }
-}
+.hand-count-display { font-size: 0.7em; color: #fff; background-color: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 6px; z-index: 160; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+.opponent-left .hand-count-display, .opponent-right .hand-count-display { bottom: auto; top: calc(100% - 10px); }
+@media (max-height: 600px), (max-width: 700px) { #gameArea { padding-top: 35px; padding-bottom: 20px; } #gameInfoBar { height: 30px; font-size:0.8em; } .card { width: 120px; height: 168px; font-size: 1.1em; } #myHand.myHand .card { margin-left: -90px; } #centerPileArea .card { width: 120px; height: 168px; font-size: 1.1em; } #myHand.playerCards.myHand { min-height: 190px; } #centerArea { min-height: 190px; } #centerPileArea { min-height: 180px; } .opponentHand .card { width: 40px; height: 56px; } .opponentHand { height: 65px; } .my-actions-container button { min-width: 40px; height: 28px; font-size: 0.7em;} .player-avatar { width: 26px; height: 26px; } #gameStatusDisplay { font-size: 0.65em; padding: 1px 5px; bottom: 2px;} .hand-count-display { font-size: 0.65em; bottom: -5px; } #playerAreaBottom.selfArea { bottom: 20px; } #centerArea { top: 42%; } }
+@media (max-width: 600px) { .card { width: 90px; height: 126px; font-size: 0.9em; } #myHand.myHand .card { margin-left: -65px; } #centerPileArea .card { width: 90px; height: 126px; font-size: 0.9em; } #myHand.playerCards.myHand { min-height: 145px; } #centerArea { top: 42%; min-height: 150px; } #centerPileArea { min-height: 140px; } .opponentHand .card { width: 35px; height: 49px; } .opponentHand { height: 60px; }}
