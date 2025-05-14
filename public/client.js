@@ -128,7 +128,8 @@ function renderPlayerCards(containerParam, playerData, isMe, isMyTurnAndPlaying)
         targetContainer = document.getElementById('myHand');
         if (!targetContainer) { console.error("[DEBUG] renderPlayerCards: #myHand NOT FOUND!"); return; }
         targetContainer.innerHTML = ''; // Crucial: Clear before rendering self hand
-    } else {
+ if (playerData.hand === undefined && !playerData.finished && isMe) { console.warn("[DEBUG] renderPlayerCards: My hand is undefined, cannot render."); return; } // Prevent rendering with undefined hand for self
+    }  else {
         targetContainer = containerParam;
         if (!targetContainer) { console.error(`[DEBUG] renderPlayerCards for OPPONENT (${playerData.username}): Passed container is null.`); return; }
         targetContainer.innerHTML = ''; // Clear opponent hand container too
@@ -228,21 +229,19 @@ socket.on('gameStateUpdate', (newState) => {
 
     const myNewPlayerState = currentGameState.players.find(p => p.userId === myUserId);
 
+    // Specific logic for updating my hand based on server state
     if (myNewPlayerState) {
-        // If this update is NOT due to my own last play (e.g., someone else played),
-        // AND the server didn't send my full hand (common for non-active players),
-        // AND I had a hand before, then restore my hand locally.
-        if (newState.lastPlayerWhoPlayedId !== myUserId && myNewPlayerState.hand === undefined && myHandBeforeUpdate) {
+ // If the update is from my own play AND the server provided my updated hand, use it.
+ // Or if the update is NOT from my play, and the server provided my hand, use it.
+        if (myNewPlayerState.hand !== undefined) {
+            // Server provided the hand, use it as the authoritative source.
+            // This path is expected after my own successful play.
+            // It's also possible server sends hand to non-active players sometimes.
             if (!myNewPlayerState.finished) {
-                console.warn(`[DEBUG] gameStateUpdate: My hand was undefined in update (not my play), restoring from previous. Count: ${myNewPlayerState.handCount}, Restored length: ${myHandBeforeUpdate.length}`);
-                myNewPlayerState.hand = myHandBeforeUpdate;
+ console.log(`[DEBUG] gameStateUpdate: Server sent my updated hand. Using it. Count: ${myNewPlayerState.hand.length}`);
+                // myNewPlayerState.hand is already updated by currentGameState = newState;
             }
-        }
-        // If this update IS due to my own last play, myNewPlayerState.hand SHOULD contain the updated hand from the server.
-        // If myNewPlayerState.hand is undefined here, it's a server-side issue (server should send updated hand to player who played).
-        else if (newState.lastPlayerWhoPlayedId === myUserId && myNewPlayerState.hand === undefined) {
-            console.error(`[DEBUG] gameStateUpdate: My play, but server sent undefined hand for me. HandCount: ${myNewPlayerState.handCount}. This might lead to issues.`);
-            // If handCount is 0, it's safe to assume empty hand.
+        } else if (myNewPlayerState.handCount === 0) {
             if (myNewPlayerState.handCount === 0) {
                 myNewPlayerState.hand = [];
             }
