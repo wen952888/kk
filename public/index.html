@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KK 在线纸牌</title>
-    <link rel="stylesheet" href="style.css?v=1.0.14"> <!-- 版本号递增 -->
+    <link rel="stylesheet" href="style.css?v=1.0.15"> <!-- 版本号递增 -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#e0e0e0"/>
     <link rel="apple-touch-icon" href="/images/icon-192x192.png">
@@ -77,35 +77,28 @@
 
             <!-- 自己的区域 (最下方) -->
             <div id="playerAreaBottom" class="playerArea selfArea">
-                <!-- 自己头像信息、准备按钮、操作按钮 -->
-                <div class="self-top-info">
-                    <!-- 左侧操作按钮 -->
-                    <div class="actions-group left-actions my-actions-container hidden-view">
-                        <button id="sortHandButton" title="整理">整理</button>
-                        <button id="hintButton" title="提示">提示</button>
-                    </div>
-                    <!-- 中间玩家信息和准备按钮 -->
-                    <div class="player-main-info-container">
-                        <div class="playerHeader">
-                            <div class="player-avatar"></div>
-                            <div class="player-details">
-                                <span class="playerName">你</span><span class="playerRole">[?]</span>
-                            </div>
-                        </div>
-                        <div class="playerInfo">总分: 0</div>
-                        <button id="readyButton" class="hidden-view">准备</button>
-                    </div>
-                    <!-- 右侧操作按钮 -->
-                    <div class="actions-group right-actions my-actions-container hidden-view">
-                        <button id="passTurnButton" title="不要">不要</button>
-                        <button id="playSelectedCardsButton" title="出牌" disabled>出牌</button>
-                    </div>
-                </div>
-                <!-- 自己的手牌 -->
+                <!-- 自己的手牌 (最上面) -->
                 <div id="myHand" class="playerCards myHand">
                     <!-- 卡牌由JS动态生成 -->
                 </div>
-                <!-- 原本的 my-actions-container 已移到 self-top-info 内部并拆分 -->
+                <!-- 自己头像信息和准备按钮 (中间) -->
+                <div class="self-player-info-container">
+                    <div class="playerHeader">
+                        <div class="player-avatar"></div>
+                        <div class="player-details">
+                            <span class="playerName">你</span><span class="playerRole">[?]</span>
+                        </div>
+                    </div>
+                    <div class="playerInfo">总分: 0</div>
+                    <button id="readyButton" class="hidden-view">准备</button>
+                </div>
+                <!-- 操作按钮 (最下面) -->
+                <div class="my-actions-container hidden-view">
+                    <button id="sortHandButton" title="整理">整理</button>
+                    <button id="hintButton" title="提示">提示</button>
+                    <button id="passTurnButton" title="不要">不要</button>
+                    <button id="playSelectedCardsButton" title="出牌" disabled>出牌</button>
+                </div>
             </div>
 
             <!-- 游戏状态显示条 -->
@@ -123,6 +116,6 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="client.js?v=1.0.14"></script>
+    <script src="client.js?v=1.0.15"></script>
 </body>
 </html>
