@@ -296,6 +296,7 @@ function addPlayerToRoom(room, socket) {
     return { success: true, player: playerInfo };
 }
 
+// --- MODIFICATION START ---
 function checkAndStartGame(room) {
      if (room.status !== 'waiting') return;
      const connectedPlayers = room.players.filter(p => p.connected);
@@ -308,9 +309,22 @@ function checkAndStartGame(room) {
          const startResult = room.game.startGame(playerStartInfo);
 
          if (startResult.success) {
-             const initialState = getRoomStateForPlayer(room, null, true);
-             ioInstance.to(room.roomId).emit('gameStarted', initialState);
-             console.log(`[GAME ${room.roomId}] Game started. First player determined by game rules.`);
+             console.log(`[GAME ${room.roomId}] Game started successfully. Broadcasting personalized gameStarted events.`);
+             // Send personalized game state to each player
+             room.players.forEach(playerInRoom => {
+                 if (playerInRoom.connected && playerInRoom.socketId) { // Ensure player is still connected and has a socketId
+                     const playerSocket = ioInstance.sockets.sockets.get(playerInRoom.socketId);
+                     if (playerSocket) {
+                         const initialStateForPlayer = getRoomStateForPlayer(room, playerInRoom.userId, true);
+                         playerSocket.emit('gameStarted', initialStateForPlayer);
+                         console.log(`[GAME ${room.roomId}] Sent gameStarted to ${playerInRoom.username} (ID: ${playerInRoom.userId})`);
+                     } else {
+                         console.warn(`[GAME ${room.roomId}] Could not find socket for player ${playerInRoom.username} (ID: ${playerInRoom.userId}, SocketID: ${playerInRoom.socketId}) to send gameStarted event.`);
+                     }
+                 } else {
+                      console.log(`[GAME ${room.roomId}] Player ${playerInRoom.username} (ID: ${playerInRoom.userId}) is not connected or has no socketId, skipping gameStarted event.`);
+                 }
+             });
              broadcastRoomList();
          } else {
              console.error(`[ROOM ${room.roomId}] Failed to start game internally: ${startResult.message}`);
@@ -321,6 +335,7 @@ function checkAndStartGame(room) {
          }
      }
 }
+// --- MODIFICATION END ---
 
 function getRoomStateForPlayer(room, requestingUserId, isGameUpdate = false) {
      const gameState = room.game ? room.game.getStateForPlayer(requestingUserId) : null;
