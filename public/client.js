@@ -92,13 +92,12 @@ function fanCards(cardContainer, cardElements, areaId) {
 
     if (areaId === 'playerAreaBottom') { // My hand
         cardElements.forEach((card, i) => {
-            card.style.zIndex = i;
-            // Reset any JS-applied transforms, let CSS handle overlap and hover/selected states
+            card.style.zIndex = i; // Base stacking order, CSS negative margin creates overlap
+            // Reset JS-applied transforms to let CSS control hover/select animations
             card.style.transform = '';
             card.style.left = '';
             card.style.top = '';
-            // Ensure card is not absolutely positioned by JS if CSS expects it to be a flex item
-            card.style.position = ''; // Clears inline position, CSS rule for #myHand .card takes over
+            card.style.position = ''; // Ensure it's not 'absolute' if CSS expects 'relative' for flex item
         });
     } else { // Opponent hands - Stacked deck effect
         const offsetXPerCard = 1;
@@ -106,18 +105,18 @@ function fanCards(cardContainer, cardElements, areaId) {
         const maxVisibleStackedCards = Math.min(numCards, 3); // Show offset for up to 3 cards
 
         cardElements.forEach((card, i) => {
-            // CSS should set position: absolute for .opponentHand .card
+            // CSS for .opponentHand .card should set position: absolute;
             let currentOffsetX = 0;
             let currentOffsetY = 0;
             if (i < maxVisibleStackedCards) {
                 currentOffsetX = i * offsetXPerCard;
                 currentOffsetY = i * offsetYPerCard;
-            } else { // Cards beyond maxVisible stack under the last distinctly offset card
+            } else {
                 currentOffsetX = (maxVisibleStackedCards - 1) * offsetXPerCard;
                 currentOffsetY = (maxVisibleStackedCards - 1) * offsetYPerCard;
             }
             card.style.transform = `translate(${currentOffsetX}px, ${currentOffsetY}px)`;
-            card.style.zIndex = i;
+            card.style.zIndex = i; // Higher index (later in DOM for opponent) is on top
             card.style.opacity = '1';
         });
     }
@@ -128,13 +127,16 @@ function renderCard(cardData, isHidden, isCenterPileCard = false) { const cardDi
 
 function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
     if (isMe) {
-        // console.log(`renderPlayerCards for ME (${playerData.username}). Hand from state:`, playerData.hand ? JSON.parse(JSON.stringify(playerData.hand)) : 'undefined or empty');
+        // console.groupCollapsed(`[DEBUG] renderPlayerCards for ME (${playerData.username})`);
+        // console.log("Timestamp:", new Date().toLocaleTimeString());
+        // console.log("Player Data Hand for render:", playerData.hand ? JSON.parse(JSON.stringify(playerData.hand)) : 'undefined or empty');
+        // console.log("DOM container innerHTML BEFORE clear:", container.innerHTML.substring(0,100)); // Log a snippet
+        // console.groupEnd();
     }
     // CRITICAL: Thoroughly clear the container.
     while (container.firstChild) {
         container.removeChild(container.firstChild);
     }
-    // container.innerHTML = ''; // Alternative, but the loop above is often safer with event listeners.
 
     const cardElements = [];
 
@@ -226,12 +228,21 @@ socket.on('gameStarted', (initialGameState) => { const gameStatusDisp = document
 
 socket.on('gameStateUpdate', (newState) => {
     if (currentView === 'roomView' && currentRoomId === newState.roomId) {
-        // Log the received new state and specifically your hand in it
-        console.log("CLIENT: Received gameStateUpdate. New state:", JSON.parse(JSON.stringify(newState)));
+        console.groupCollapsed(`[DEBUG] gameStateUpdate Received for room ${newState.roomId}`);
+        console.log("Timestamp:", new Date().toLocaleTimeString());
+        // console.log("Previous Game State (snapshot):", previousGameState ? JSON.parse(JSON.stringify(previousGameState)) : null);
+        // console.log("New State from Server:", JSON.parse(JSON.stringify(newState)));
+
         const myPlayerDataInNewState = newState.players.find(p => p.userId === myUserId);
         if (myPlayerDataInNewState) {
-            console.log("CLIENT: My hand in received newState:", myPlayerDataInNewState.hand ? JSON.parse(JSON.stringify(myPlayerDataInNewState.hand)) : 'undefined');
+            console.log(`My Hand in new state (${myPlayerDataInNewState.username}):`,
+                myPlayerDataInNewState.hand ? JSON.parse(JSON.stringify(myPlayerDataInNewState.hand)) : 'undefined or empty',
+                `(Count: ${myPlayerDataInNewState.handCount})`
+            );
+        } else {
+            console.warn("My player data not found in new state!");
         }
+        console.groupEnd();
 
         let myCurrentHand = null;
         if (currentGameState && currentGameState.players) {
@@ -242,13 +253,12 @@ socket.on('gameStateUpdate', (newState) => {
         }
 
         previousGameState = currentGameState ? JSON.parse(JSON.stringify(currentGameState)) : null;
-        currentGameState = newState; // Apply the new state from the server
+        currentGameState = newState;
 
-        // Hand restoration logic (if server sometimes doesn't send hand for self in general update)
         if (myCurrentHand && myCurrentHand.length > 0) {
             const myPlayerInNewStateUpdated = currentGameState.players.find(p => p.userId === myUserId);
             if (myPlayerInNewStateUpdated && !myPlayerInNewStateUpdated.finished && myPlayerInNewStateUpdated.hand === undefined) {
-                console.warn("CLIENT: Restoring my hand locally as broadcast didn't include it.");
+                console.warn("CLIENT: Restoring my hand locally as broadcast didn't include it for gameStateUpdate.");
                 myPlayerInNewStateUpdated.hand = myCurrentHand;
             }
         }
@@ -257,7 +267,7 @@ socket.on('gameStateUpdate', (newState) => {
             selectedCards = [];
             clearHintsAndSelection(true);
         }
-        renderRoomView(currentGameState); // Render with the (potentially restored) new state
+        renderRoomView(currentGameState);
         updateGameStatusDisplayDOM(currentGameState);
     } else if (currentRoomId && currentRoomId !== newState.roomId) {
         console.warn("Received gameStateUpdate for a different room. Ignoring.");
