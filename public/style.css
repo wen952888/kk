@@ -14,10 +14,7 @@ html, body {
 .overlay.view-flex { justify-content: center; align-items: center; }
 
 /* --- Login/Lobby Views Styles --- */
-.view {
-    background-color: #f5f5f5; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    border-radius: 10px; margin: 20px auto; padding: 25px; box-sizing: border-box;
-}
+.view { background-color: #f5f5f5; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 10px; margin: 20px auto; padding: 25px; box-sizing: border-box; }
 #loginRegisterView, #lobbyView, #loadingView { width: 90%; max-width: 600px; color: #333; }
 #loadingView.view-block { text-align: center; padding-top: 50px; font-size: 1.2em; color: #555; background-color: transparent; box-shadow: none;}
 #authFormContainer { display: flex; flex-wrap: wrap; justify-content: space-around; margin-bottom: 20px; gap: 20px; }
@@ -42,8 +39,8 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 #gameArea {
     flex-grow: 1;
     position: relative;
-    padding-top: 45px; /* Space for gameInfoBar */
-    padding-bottom: 25px; /* Space for gameStatusDisplay */
+    padding-top: 45px;
+    padding-bottom: 25px;
     box-sizing: border-box;
     background-color: #e0e0e0;
     overflow: hidden;
@@ -91,16 +88,14 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 
 .opponentHand {
     display: flex; justify-content: center; align-items: center;
-    width: auto; min-width: 40px; /* Enough for stacked cards */
-    height: 50px; /* Height of stacked cards */
+    width: auto; min-width: 40px;
+    height: 50px;
     position: relative; margin-top: 2px;
 }
-/* Opponent cards will be smaller and stacked by JS */
 .opponentHand .card {
-    position: absolute; /* For stacking */
-    width: 45px; /* Smaller opponent cards */
-    height: 63px;
-    font-size: 0.6em; /* Adjust font for smaller cards */
+    position: absolute;
+    width: 45px; height: 63px;
+    font-size: 0.6em;
     border-radius: 3px;
     box-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.1);
 }
@@ -111,29 +106,29 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 /* Center Area */
 #centerArea {
     position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%);
-    width: auto; max-width: 70%; min-width: 150px;
+    width: auto; max-width: 70%; min-width: 150px; /* Ensure it can hold at least a couple of cards */
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 5px; z-index: 50; min-height: 180px; /* Adjusted for new larger card height */
+    padding: 5px; z-index: 50; min-height: 230px; /* To accommodate large cards from centerPileArea */
 }
 #centerInfo { text-align: center; margin-bottom: 3px; width: 100%; }
 #centerInfo #lastHandText { font-size: 0.7em; color: #666; margin: 0 0 1px 0; }
 #centerInfo #lastHandTypeDisplay { font-size: 0.75em; color: #444; font-weight: bold; min-height: 1em; }
 #centerPileArea {
     display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
-    width: 100%; min-height: 150px; /* Adjusted for new larger card height */
+    width: 100%; min-height: 215px; /* Min height for one row of large cards */
     padding: 2px; box-sizing: border-box;
 }
-/* Center pile cards will use the larger user card size */
+/* Center pile cards use the larger user card size */
 #centerPileArea .card {
     position: relative; margin: 2px;
-    width: 150px; height: 210px; font-size: 1.3em; border-radius: 8px; /* Large cards */
+    width: 150px; height: 210px; font-size: 1.3em; border-radius: 8px;
 }
 
 
 /* Self Area (Bottom: Hand, Avatar/Info, Buttons) */
 #playerAreaBottom.selfArea {
     position: absolute;
-    bottom: 25px; /* Space for gameStatusDisplay */
+    bottom: 25px;
     left: 0; right: 0;
     display: flex;
     flex-direction: column;
@@ -145,33 +140,33 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 
 /* My Hand (on top in selfArea) */
 #myHand.playerCards.myHand {
-    order: 1; /* Hand first */
+    order: 1;
     width: 100%; max-width: 95vw;
-    min-height: 230px; /* For larger cards + overlap */
+    min-height: 230px;
     overflow-x: auto; overflow-y: hidden;
     display: flex; justify-content: center; align-items: flex-end;
     padding-bottom: 5px;
-    margin-bottom: 5px; /* Space before avatar/info */
+    margin-bottom: 5px;
     scrollbar-width: thin; scrollbar-color: #b0b0b0 #e0e0e0;
 }
 #myHand.playerCards.myHand::-webkit-scrollbar { height: 4px; }
 
 /* Container for self avatar, info, ready button (middle in selfArea) */
 #playerAreaBottom .self-player-info-container {
-    order: 2; /* Avatar/info second */
+    order: 2;
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 5px; /* Space before action buttons */
+    margin-bottom: 5px;
 }
-#playerAreaBottom .self-player-info-container .player-avatar { width: 30px; height: 30px;} /* Consistent with opponent avatar size */
+#playerAreaBottom .self-player-info-container .player-avatar { width: 30px; height: 30px;}
 #playerAreaBottom .self-player-info-container .playerHeader { flex-direction: column; align-items: center; }
 #readyButton { padding: 3px 7px; font-size: 0.7em; margin-top: 2px; }
 #readyButton.ready { background-color: #f44336; border-color: #d32f2f; }
 
 /* Action Buttons (bottom in selfArea) */
 .my-actions-container {
-    order: 3; /* Buttons last */
+    order: 3;
     display: flex; justify-content: center; align-items: center;
     gap: 5px; padding: 2px 0; width: 100%;
 }
@@ -187,14 +182,13 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 .card {
     border: 1px solid #a0a0a0;
     border-radius: 8px;
-    width: 150px; /* Large card width */
-    height: 210px; /* Large card height */
+    width: 150px; height: 210px;
     background-color: #fff; color: #222; font-size: 1.3em;
     box-shadow: 2px 2px 4px rgba(0,0,0,0.12);
     background-size: contain; background-repeat: no-repeat; background-position: center;
     display: flex; flex-direction: column; justify-content: space-around; align-items: center;
     overflow: hidden; flex-shrink: 0;
-    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, z-index 0s linear 0.16s; /* Added z-index transition */
     user-select: none; padding: 6px 3px; box-sizing: border-box;
 }
 .card.hidden { background-image: url('/images/card-back.png'); border-color: #777; }
@@ -205,14 +199,51 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 
 /* My Hand Specific Card Interaction & Overlap */
 #myHand.myHand .card {
-    position: relative; transform-origin: bottom center; cursor: pointer; z-index: 10;
-    margin-left: -110px; /* Overlap: (150px card width - 40px visible part) */
+    position: relative; transform-origin: bottom center; cursor: pointer;
+    /* z-index will be set by JS in fanCards based on DOM order (0, 1, 2...) */
+    margin-left: -110px;
 }
 #myHand.myHand .card:first-child { margin-left: 0; }
-#myHand.myHand .card:hover { transform: translateY(-30px) scale(1.07); z-index: 100 !important; }
-#myHand.myHand .card.selected { border: 3px solid #007bff; transform: translateY(-25px) scale(1.05); z-index: 99 !important; }
-#myHand.myHand .card.hinted { border: 3px dashed orange; transform: translateY(-15px); }
-#myHand.myHand .card.disabled { opacity: 0.6; cursor: not-allowed; transform: translateY(0) !important; }
+
+#myHand.myHand .card:hover {
+    transform: translateY(-30px) scale(1.07);
+    z-index: 200 !important; /* Hover should be visually on top of non-active cards */
+    box-shadow: 3px 3px 8px rgba(0,0,0,0.2);
+    transition-delay: 0s; /* Apply z-index immediately */
+}
+#myHand.myHand .card.selected {
+    border: 3px solid #007bff;
+    transform: translateY(-35px) scale(1.08); /* Slightly more lift and scale */
+    /*
+      Keep z-index RELATIVE to its siblings for correct overlap.
+      If JS sets z-index to its DOM order (e.g., card 5 has z-index 4),
+      this should be slightly higher to pop, but not jump over ALL cards.
+      Let's try a moderate increase. If JS sets z-index from 0-12, then 20-30 might be good.
+      Or, if JS sets z-index for selected cards, it should be higher than its direct neighbors.
+      For now, let CSS try to handle it with a value that's higher than the base.
+    */
+    z-index: 50 !important; /* This might still make it jump over cards to its right. */
+                            /* The ideal solution is JS dynamically setting z-index of selected AND its right neighbors. */
+    box-shadow: 2px 3px 7px rgba(0,0,0,0.2);
+    transition-delay: 0s;
+}
+#myHand.myHand .card.hinted {
+    border: 3px dashed orange;
+    transform: translateY(-15px);
+    z-index: 40 !important; /* Higher than normal, less than selected/hover */
+    transition-delay: 0s;
+}
+#myHand.myHand .card.disabled {
+    opacity: 0.6; cursor: not-allowed;
+    transform: translateY(0) !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.08);
+    z-index: 5 !important;
+}
+/* Reset z-index for non-active cards to let JS-set order take effect */
+#myHand.myHand .card:not(:hover):not(.selected):not(.hinted) {
+    /* z-index is set by JS (fanCards) based on DOM order. No need to override here unless specific cases. */
+}
+
 
 .playerArea.current-turn .player-avatar { box-shadow: 0 0 5px 1px gold; }
 
@@ -237,51 +268,33 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 /* Hand Count Display for Opponents */
 .hand-count-display {
     font-size: 0.7em; color: #fff; background-color: rgba(0,0,0,0.7);
-    padding: 1px 4px; border-radius: 6px; z-index: 160; /* Above cards */
-    position: absolute;
-    bottom: 0px; /* Position at the bottom of the opponent card area */
-    left: 50%;
-    transform: translateX(-50%);
+    padding: 1px 4px; border-radius: 6px; z-index: 160;
+    position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
     white-space: nowrap;
 }
-/* For side players, if .opponentHand has a fixed height, this might need to be relative to .playerArea */
 .opponent-left .hand-count-display, .opponent-right .hand-count-display {
-     bottom: 0px; /* Adjust if needed */
+    bottom: auto; top: calc(100% - 10px); /* Adjust to be closer to cards */
 }
 
-
 /* --- Responsive Adjustments --- */
-@media (max-width: 1200px) { /* Larger tablets / smaller desktops */
-    .card { width: 120px; height: 168px; font-size: 1.1em; }
+@media (max-height: 600px), (max-width: 700px) {
+    #gameArea { padding-top: 35px; padding-bottom: 20px; }
+    #gameInfoBar { height: 30px; font-size:0.8em; }
+    .card { width: 120px; height: 168px; font-size: 1.1em; } /* Base for this size */
     #myHand.myHand .card { margin-left: -90px; }
     #centerPileArea .card { width: 120px; height: 168px; font-size: 1.1em; }
     #myHand.playerCards.myHand { min-height: 190px; }
     #centerArea { min-height: 190px; } #centerPileArea { min-height: 180px; }
-    .opponentHand .card { width: 40px; height: 56px; } /* Keep opponent cards small */
+    .opponentHand .card { width: 40px; height: 56px; }
     .opponentHand { height: 65px; }
-}
-
-@media (max-width: 900px) { /* Tablets */
-    .card { width: 90px; height: 126px; font-size: 0.9em; }
-    #myHand.myHand .card { margin-left: -65px; } /* Adjust overlap for smaller cards */
-    #centerPileArea .card { width: 90px; height: 126px; font-size: 0.9em; }
-    #myHand.playerCards.myHand { min-height: 145px; }
-    #centerArea { min-height: 150px; } #centerPileArea { min-height: 140px; }
-    .opponentHand .card { width: 35px; height: 49px; }
-    .opponentHand { height: 60px; }
-    .my-actions-container button { min-width: 50px; height: 35px; font-size: 0.8em;}
-}
-
-@media (max-width: 600px) { /* Mobile screens */
-    #gameArea { padding-top: 35px; padding-bottom: 20px; }
-    #gameInfoBar { height: 30px; font-size:0.8em; }
-    .card { width: 70px; height: 98px; font-size: 0.8em; border-radius: 4px;}
-    #myHand.myHand .card { margin-left: -50px; }
-    #centerPileArea .card { width: 70px; height: 98px; font-size: 0.8em; }
-    #myHand.playerCards.myHand { min-height: 110px; }
-    #centerArea { top: 42%; min-height: 115px; } #centerPileArea { min-height: 105px; }
-    .opponentHand .card { width: 30px; height: 42px; }
-    .opponentHand { height: 50px; }
     .my-actions-container button { min-width: 40px; height: 28px; font-size: 0.7em;}
-    .player-avatar { width: 28px; height: 28px;}
+    .player-avatar { width: 26px; height: 26px; }
+    #gameStatusDisplay { font-size: 0.65em; padding: 1px 5px; bottom: 2px;}
+}
+@media (max-width: 600px) { /* Mobile further adjustments */
+     .card { width: 90px; height: 126px; font-size: 0.9em; }
+     #myHand.myHand .card { margin-left: -65px; }
+     #centerPileArea .card { width: 90px; height: 126px; font-size: 0.9em; }
+     #myHand.playerCards.myHand { min-height: 145px; }
+     #centerArea { top: 42%; min-height: 150px; } #centerPileArea { min-height: 140px; }
 }
