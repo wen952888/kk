@@ -154,6 +154,7 @@ class Game {
     }
 
     playCard(playerId, cards) {
+        console.log(`\n[SERVER GAME ${this.roomId}] playCard called by ${playerId} with cards: ${JSON.stringify(cards.map(c=>c.rank+c.suit))}`);
         if (!this.gameStarted || this.gameFinished) return { success: false, message: "游戏未开始或已结束。" };
         const playerIndex = this.players.findIndex(p => p.id === playerId);
         if (playerIndex !== this.currentPlayerIndex) return { success: false, message: "现在不是你的回合。" };
@@ -168,15 +169,24 @@ class Game {
         const validationResult = this.checkValidPlay(cards, player.hand, this.lastValidHandInfo, this.firstTurn);
         if (!validationResult.valid) return { success: false, message: validationResult.message };
 
+        // --- LOGGING POINT 1: BEFORE HAND MODIFICATION ---
+        console.log(`  [playCard] Player ${player.name} (ID: ${playerId}) current hand BEFORE filter:`, JSON.stringify(player.hand.map(c => c.rank + c.suit)));
+        console.log(`  [playCard] Cards to play:`, JSON.stringify(cards.map(c => c.rank + c.suit)));
+
         const cardsToRemoveSet = new Set(cards.map(c => `${c.rank}${c.suit}`));
         player.hand = player.hand.filter(card => !cardsToRemoveSet.has(`${card.rank}${card.suit}`));
 
-        this.centerPile = cards;
+        // --- LOGGING POINT 2: AFTER HAND MODIFICATION ---
+        console.log(`  [playCard] Player ${player.name}'s hand AFTER filter:`, JSON.stringify(player.hand.map(c => c.rank + c.suit)));
+        console.log(`  [playCard] Player ${player.name}'s hand count after filter: ${player.hand.length}`);
+
+
+        this.centerPile = [...cards]; // Ensure a new array for centerPile
         this.lastValidHandInfo = validationResult.handInfo;
         this.lastPlayerWhoPlayed = playerId;
         this.consecutivePasses = 0;
         if (this.firstTurn) this.firstTurn = false;
-        console.log(`[GAME ${this.roomId}] Player ${player.name} played ${this.lastValidHandInfo.type}.`);
+        console.log(`[GAME ${this.roomId}] Player ${player.name} played ${this.lastValidHandInfo.type}. Center pile is now:`, JSON.stringify(this.centerPile.map(c => c.rank + c.suit)));
         this.possibleHints = []; this.currentHintIndexInternal = 0;
 
         let gameOver = false;
@@ -209,6 +219,7 @@ class Game {
             }
         }
 
+        console.log(`[SERVER GAME ${this.roomId}] playCard finished for ${playerId}. About to return/trigger update.`);
         if (gameOver) {
             return { success: true, gameOver: true, scoreResult: scoreResult, handInfo: this.lastValidHandInfo };
         } else if (player.finished) {
@@ -287,10 +298,7 @@ class Game {
          }
 
          do {
-              // MODIFICATION FOR REVERSE (COUNTER-CLOCKWISE) ORDER
               nextIndex = (nextIndex - 1 + numPlayers) % numPlayers;
-              // END MODIFICATION
-
               loopDetection++;
               if (loopDetection > maxLoops) {
                    console.error(`[GAME ${this.roomId}] Infinite loop detected in nextTurn! Current player: ${this.players[currentIdx]?.name}, Next attempted: ${this.players[nextIndex]?.name}. All players:`, this.players.map(p => ({name:p.name, finished:p.finished, connected:p.connected })));
@@ -564,17 +572,25 @@ class Game {
     sortHand(hand) { hand.sort(compareSingleCards); }
 
     getStateForPlayer(requestingPlayerId) {
-        return {
+        // --- LOGGING POINT 3: INSIDE getStateForPlayer ---
+        console.log(`\n[SERVER GAME ${this.roomId}] Entering getStateForPlayer for requestingPlayerId: ${requestingPlayerId || 'BROADCAST'} at ${new Date().toLocaleTimeString()}`);
+        this.players.forEach(p => {
+            console.log(`  [getStateForPlayer] Player ${p.name} (ID: ${p.id}) - Server-side hand: ${p.hand ? p.hand.length + ' cards: ' + JSON.stringify(p.hand.map(c=>c.rank+c.suit)) : 'NO HAND DATA'}`);
+        });
+        console.log(`  [getStateForPlayer] Center pile on server: ${this.centerPile ? JSON.stringify(this.centerPile.map(c => c.rank + c.suit)) : '[]'}`);
+
+        const stateToReturn = {
             players: this.players.map(p => ({
                 id: p.id, name: p.name, slot: p.slot, score: p.score,
                 role: this.playerRoles[p.id] || p.role,
                 finished: p.finished,
                 connected: p.connected,
-                hand: p.id === requestingPlayerId ? p.hand : undefined,
-                handCount: p.hand.length,
+                // CRITICAL: Ensure a fresh copy of the hand is sent, not a reference
+                hand: p.id === requestingPlayerId ? (p.hand ? [...p.hand] : []) : undefined,
+                handCount: p.hand ? p.hand.length : 0, // Always send handCount
             })),
-            centerPile: [...this.centerPile],
-            lastHandInfo: this.lastValidHandInfo ? { type: this.lastValidHandInfo.type, cards: this.lastValidHandInfo.cards } : null,
+            centerPile: this.centerPile ? [...this.centerPile] : [], // Ensure a new array
+            lastHandInfo: this.lastValidHandInfo ? { type: this.lastValidHandInfo.type, cards: [...this.lastValidHandInfo.cards] } : null,
             currentPlayerId: this.gameFinished ? null : (this.currentPlayerIndex >=0 && this.players[this.currentPlayerIndex] ? this.players[this.currentPlayerIndex].id : null),
             isFirstTurn: this.firstTurn,
             gameStarted: this.gameStarted,
@@ -584,6 +600,18 @@ class Game {
             finishOrder: [...this.finishOrder],
             lastPlayerWhoPlayedId: this.lastPlayerWhoPlayed
         };
+
+        // --- LOGGING POINT 4: STATE BEING SENT by getStateForPlayer ---
+        const requestingPlayerStatePrepared = stateToReturn.players.find(p => p.id === requestingPlayerId);
+        if (requestingPlayerStatePrepared) {
+            console.log(`  [getStateForPlayer] For ${requestingPlayerId}, hand being sent in state:`, requestingPlayerStatePrepared.hand ? JSON.stringify(requestingPlayerStatePrepared.hand.map(c=>c.rank+c.suit)) : 'undefined (correct for others or if hand is empty)');
+        } else if (!requestingPlayerId) {
+             console.log(`  [getStateForPlayer] BROADCAST state - hands for individual players will be undefined (correct).`);
+        }
+        console.log(`  [getStateForPlayer] Center pile being sent in state: ${JSON.stringify(stateToReturn.centerPile.map(c => c.rank + c.suit))}`);
+        console.log(`[SERVER GAME ${this.roomId}] Exiting getStateForPlayer for ${requestingPlayerId || 'BROADCAST'}\n`);
+
+        return stateToReturn;
     }
 }
 
