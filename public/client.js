@@ -10,7 +10,7 @@ let myUserId = null;
 let myUsername = null;
 let currentRoomId = null;
 let currentGameState = null;
-let previousGameState = null;
+let previousGameState = null; // Keep for debugging or specific comparisons
 let isReadyForGame = false;
 let selectedCards = [];
 let currentSortMode = 'rank';
@@ -40,16 +40,16 @@ const roomListEl = document.getElementById('roomList');
 const lobbyMessage = document.getElementById('lobbyMessage');
 const centerPileArea = document.getElementById('centerPileArea');
 const lastHandTypeDisplay = document.getElementById('lastHandTypeDisplay');
-const myHandArea = document.getElementById('myHand');
+const myHandArea = document.getElementById('myHand'); // This is the direct container for user's cards
 const playSelectedCardsButton = document.getElementById('playSelectedCardsButton');
 const passTurnButton = document.getElementById('passTurnButton');
 const hintButton = document.getElementById('hintButton');
 const sortHandButton = document.getElementById('sortHandButton');
-const playerAreas = {
-    0: document.getElementById('playerAreaBottom'),
-    1: document.getElementById('playerAreaLeft'),
-    2: document.getElementById('playerAreaTop'),
-    3: document.getElementById('playerAreaRight')
+const playerAreas = { // These are the top-level containers for each player slot
+    0: document.getElementById('playerAreaBottom'), // Self
+    1: document.getElementById('playerAreaLeft'),   // Opponent
+    2: document.getElementById('playerAreaTop'),    // Opponent
+    3: document.getElementById('playerAreaRight')   // Opponent
 };
 const gameOverTitle = document.getElementById('gameOverTitle');
 const gameOverReason = document.getElementById('gameOverReason');
@@ -86,83 +86,91 @@ function renderRoomView(state) { if (!state || !roomView || !myUserId) { console
 function clearPlayerAreaDOM(area) { if (!area) return; const avatarEl = area.querySelector('.player-avatar'); const nameEl = area.querySelector('.playerName'); const roleEl = area.querySelector('.playerRole'); const infoEl = area.querySelector('.playerInfo'); const cardsEl = area.querySelector('.playerCards'); const handCountEl = area.querySelector('.hand-count-display'); if (avatarEl) { avatarEl.innerHTML = ''; avatarEl.style.backgroundImage = ''; } if (nameEl) nameEl.textContent = (area.id === 'playerAreaBottom' && myUsername) ? myUsername + ' (你)' : '空位'; if (roleEl) roleEl.textContent = '[?]'; if (infoEl) infoEl.innerHTML = '总分: 0'; if (cardsEl) cardsEl.innerHTML = '<span style="color:#888; font-style:italic;">- 等待 -</span>'; if (handCountEl) handCountEl.remove(); if (area.id === 'playerAreaBottom') { const actionsContainers = area.querySelectorAll('.my-actions-container'); actionsContainers.forEach(ac => ac.classList.add('hidden-view')); const readyBtn = area.querySelector('#readyButton'); if (readyBtn) readyBtn.classList.add('hidden-view'); } }
 function renderPlayerArea(container, playerData, isMe, state, absoluteSlot) { const avatarEl = container.querySelector('.player-avatar'); const nameEl = container.querySelector('.playerName'); const roleEl = container.querySelector('.playerRole'); const infoEl = container.querySelector('.playerInfo'); const cardsEl = container.querySelector('.playerCards'); if (!playerData || !playerData.userId) { clearPlayerAreaDOM(container); return; } if (avatarEl) { avatarEl.innerHTML = ''; avatarEl.style.backgroundImage = `url('${AVATAR_PATHS[absoluteSlot % AVATAR_PATHS.length]}')`; if (state.status === 'playing' && playerData.userId === state.currentPlayerId && !playerData.finished) { const alarmImg = document.createElement('img'); alarmImg.src = ALARM_ICON_SRC; alarmImg.alt = '出牌提示'; alarmImg.classList.add('alarm-icon'); avatarEl.appendChild(alarmImg); avatarEl.style.backgroundImage = 'none'; } } if (nameEl) nameEl.textContent = playerData.username + (isMe ? ' (你)' : ''); if (roleEl) roleEl.textContent = playerData.role ? `[${playerData.role}]` : '[?]'; if (infoEl) { let infoText = `总分: ${playerData.score || 0}`; if (playerData.finished) infoText += ' <span class="finished">[已完成]</span>'; else if (!playerData.connected && state.status !== 'waiting') infoText += ' <span class="disconnected">[已断线]</span>'; else if (state.status === 'waiting' && !isMe) { infoText += playerData.isReady ? ' <span class="ready">[已准备]</span>' : ' <span class="not-ready">[未准备]</span>'; } infoEl.innerHTML = infoText; } if (cardsEl) renderPlayerCards(cardsEl, playerData, isMe, state.status === 'playing' && state.currentPlayerId === myUserId); }
 
+// MODIFIED fanCards - only for opponents now
 function fanCards(cardContainer, cardElements, areaId) {
     const numCards = cardElements.length;
-    if (numCards === 0) return;
-
-    if (areaId === 'playerAreaBottom') { // My hand
-        cardElements.forEach((card, i) => {
-            card.style.zIndex = i; // Base stacking order, CSS negative margin creates overlap
-            // Reset JS-applied transforms to let CSS control hover/select animations
-            card.style.transform = '';
-            card.style.left = '';
-            card.style.top = '';
-            card.style.position = ''; // Ensure it's not 'absolute' if CSS expects 'relative' for flex item
-        });
-    } else { // Opponent hands - Stacked deck effect
-        const offsetXPerCard = 1;
-        const offsetYPerCard = 1;
-        const maxVisibleStackedCards = Math.min(numCards, 3); // Show offset for up to 3 cards
-
-        cardElements.forEach((card, i) => {
-            // CSS for .opponentHand .card should set position: absolute;
-            let currentOffsetX = 0;
-            let currentOffsetY = 0;
-            if (i < maxVisibleStackedCards) {
-                currentOffsetX = i * offsetXPerCard;
-                currentOffsetY = i * offsetYPerCard;
-            } else {
-                currentOffsetX = (maxVisibleStackedCards - 1) * offsetXPerCard;
-                currentOffsetY = (maxVisibleStackedCards - 1) * offsetYPerCard;
-            }
-            card.style.transform = `translate(${currentOffsetX}px, ${currentOffsetY}px)`;
-            card.style.zIndex = i; // Higher index (later in DOM for opponent) is on top
-            card.style.opacity = '1';
-        });
+    if (numCards === 0 || areaId === 'playerAreaBottom') { // Do nothing for self hand
+        // For self hand, ensure z-index is set correctly for CSS overlap
+        if (areaId === 'playerAreaBottom') {
+            cardElements.forEach((card, i) => {
+                card.style.zIndex = i; // Lower index (leftmost) is further back
+                // Clear any JS transforms, CSS handles it
+                card.style.transform = '';
+                card.style.left = '';
+                card.style.top = '';
+                card.style.position = ''; // Let it be a flex item
+            });
+        }
+        return;
     }
+
+    // Opponent hands - Stacked deck effect
+    const offsetXPerCard = 1;
+    const offsetYPerCard = 1;
+    const maxVisibleStackedCards = Math.min(numCards, 3);
+
+    cardElements.forEach((card, i) => {
+        let currentOffsetX = 0;
+        let currentOffsetY = 0;
+        if (i < maxVisibleStackedCards) {
+            currentOffsetX = i * offsetXPerCard;
+            currentOffsetY = i * offsetYPerCard;
+        } else {
+            currentOffsetX = (maxVisibleStackedCards - 1) * offsetXPerCard;
+            currentOffsetY = (maxVisibleStackedCards - 1) * offsetYPerCard;
+        }
+        card.style.transform = `translate(${currentOffsetX}px, ${currentOffsetY}px)`;
+        card.style.zIndex = i;
+        card.style.opacity = '1';
+    });
 }
 
 function getCardImageFilename(cardData) { if (!cardData || typeof cardData.rank !== 'string' || typeof cardData.suit !== 'string') { console.error("Invalid cardData for getCardImageFilename:", cardData); return null; } let rankStr = cardData.rank.toLowerCase(); if (rankStr === 't') rankStr = '10'; else if (rankStr === 'j') rankStr = 'jack'; else if (rankStr === 'q') rankStr = 'queen'; else if (rankStr === 'k') rankStr = 'king'; else if (rankStr === 'a') rankStr = 'ace'; let suitStr = ''; switch (cardData.suit.toUpperCase()) { case 'S': suitStr = 'spades'; break; case 'H': suitStr = 'hearts'; break; case 'D': suitStr = 'diamonds'; break; case 'C': suitStr = 'clubs'; break; default: console.warn("Invalid suit for card image:", cardData.suit); return null; } return `${rankStr}_of_${suitStr}.png`; }
 function renderCard(cardData, isHidden, isCenterPileCard = false) { const cardDiv = document.createElement('div'); cardDiv.classList.add('card'); if (isHidden || !cardData) { cardDiv.classList.add('hidden'); } else { cardDiv.classList.add('visible'); const filename = getCardImageFilename(cardData); if (filename) { cardDiv.style.backgroundImage = `url('/images/cards/${filename}')`; cardDiv.dataset.suit = cardData.suit; cardDiv.dataset.rank = cardData.rank; } else { cardDiv.textContent = `${cardData.rank || '?'}${getSuitSymbol(cardData.suit)}`; cardDiv.classList.add(getSuitClass(cardData.suit)); console.error("Failed to generate filename for card:", cardData, "Using text fallback."); } } return cardDiv; }
 
+// MODIFIED renderPlayerCards - focus on clean render for self hand
 function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
     if (isMe) {
         // console.groupCollapsed(`[DEBUG] renderPlayerCards for ME (${playerData.username})`);
-        // console.log("Timestamp:", new Date().toLocaleTimeString());
-        // console.log("Player Data Hand for render:", playerData.hand ? JSON.parse(JSON.stringify(playerData.hand)) : 'undefined or empty');
-        // console.log("DOM container innerHTML BEFORE clear:", container.innerHTML.substring(0,100)); // Log a snippet
+        // console.log("Hand Data for Render:", playerData.hand ? JSON.parse(JSON.stringify(playerData.hand)) : 'undefined');
         // console.groupEnd();
     }
-    // CRITICAL: Thoroughly clear the container.
+
+    // THOROUGHLY CLEAR THE CONTAINER
     while (container.firstChild) {
         container.removeChild(container.firstChild);
     }
 
-    const cardElements = [];
+    const cardElements = []; // This will be passed to fanCards ONLY for opponents
 
     if (isMe) {
+        // My hand (playerAreaBottom's .myHand container)
         let sortedHand = playerData.hand ? [...playerData.hand] : [];
         if (playerData.finished) {
             container.innerHTML = '<span style="color:#888; font-style:italic;">已出完</span>';
         } else if (sortedHand.length === 0) {
-             container.innerHTML = '<span style="color:#555; font-style:italic;">- 无手牌 -</span>';
+            container.innerHTML = '<span style="color:#555; font-style:italic;">- 无手牌 -</span>';
         } else {
             if (currentSortMode === 'rank') sortedHand.sort(compareSingleCardsClient);
             else if (currentSortMode === 'suit') sortedHand.sort(compareBySuitThenRank);
 
-            sortedHand.forEach(cardData => {
+            sortedHand.forEach((cardData, index) => { // Add index for z-index
                 const cardElement = renderCard(cardData, false, false);
+                // Set z-index directly for natural CSS stacking with negative margins
+                cardElement.style.zIndex = index;
+
                 const isSelected = selectedCards.some(c => c.rank === cardData.rank && c.suit === cardData.suit);
                 const isHinted = currentHint && currentHint.cards.some(c => c.rank === cardData.rank && c.suit === cardData.suit);
                 if (isSelected) cardElement.classList.add('selected');
                 if (isHinted) cardElement.classList.add('hinted');
+
                 if (isMyTurnAndPlaying) {
                     cardElement.onclick = () => toggleCardSelection(cardData, cardElement);
                 } else {
                     cardElement.classList.add('disabled');
                 }
                 container.appendChild(cardElement);
-                cardElements.push(cardElement);
+                // No need to push to cardElements for self hand if fanCards isn't doing transforms for it
             });
         }
     } else { // Opponent's hand
@@ -172,7 +180,7 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
             for (let i = 0; i < playerData.handCount; i++) {
                 const cardElement = renderCard(null, true, false);
                 container.appendChild(cardElement);
-                cardElements.push(cardElement);
+                cardElements.push(cardElement); // Collect for fanCards (stacking)
             }
             let handCountEl = container.closest('.playerArea')?.querySelector('.hand-count-display');
             if (!handCountEl) {
@@ -187,14 +195,15 @@ function renderPlayerCards(container, playerData, isMe, isMyTurnAndPlaying) {
             let handCountEl = container.closest('.playerArea')?.querySelector('.hand-count-display');
             if (handCountEl) handCountEl.remove();
         }
-    }
 
-    if (cardElements.length > 0) {
-        requestAnimationFrame(() => {
-             fanCards(container, cardElements, container.closest('.playerArea')?.id);
-        });
+        if (cardElements.length > 0) { // Only call fanCards for opponents
+            requestAnimationFrame(() => {
+                 fanCards(container, cardElements, container.closest('.playerArea')?.id);
+            });
+        }
     }
 }
+
 
 function updateRoomControls(state) { if (!state || !myUserId) return; const myPlayerInState = state.players.find(p => p.userId === myUserId); if (!myPlayerInState) return; const readyButtonInstance = document.getElementById('readyButton'); if (readyButtonInstance) { if (state.status === 'waiting') { readyButtonInstance.classList.remove('hidden-view'); readyButtonInstance.textContent = myPlayerInState.isReady ? '取消' : '准备'; readyButtonInstance.classList.toggle('ready', myPlayerInState.isReady); readyButtonInstance.disabled = false; } else { readyButtonInstance.classList.add('hidden-view'); } } const actionsContainers = document.querySelectorAll('#playerAreaBottom .my-actions-container'); if (actionsContainers.length > 0) { if (state.status === 'playing' && state.currentPlayerId === myUserId && !myPlayerInState.finished) { actionsContainers.forEach(ac => ac.classList.remove('hidden-view')); if(playSelectedCardsButton) playSelectedCardsButton.disabled = selectedCards.length === 0; if(passTurnButton) { let disablePass = (!state.lastHandInfo && !state.isFirstTurn); if (state.isFirstTurn && !state.lastHandInfo) { const iAmD4Holder = myPlayerInState.hand && myPlayerInState.hand.some(c => c.rank === '4' && c.suit === 'D'); if (iAmD4Holder) disablePass = true; } passTurnButton.disabled = disablePass; } if(hintButton) hintButton.disabled = false; if(sortHandButton) sortHandButton.disabled = false; } else { actionsContainers.forEach(ac => ac.classList.add('hidden-view')); } } }
 function handleRegister() { const phone = regPhoneInput.value.trim(); const password = regPasswordInput.value; if (!phone || !password) { displayMessage(authMessage, '请输入手机号和密码。', true); return; } if (password.length < 4) { displayMessage(authMessage, '密码至少需要4位。', true); return; } registerButton.disabled = true; socket.emit('register', { phoneNumber: phone, password }, (response) => { registerButton.disabled = false; displayMessage(authMessage, response.message, !response.success, response.success); if (response.success) { regPhoneInput.value = ''; regPasswordInput.value = ''; } }); }
@@ -230,9 +239,6 @@ socket.on('gameStateUpdate', (newState) => {
     if (currentView === 'roomView' && currentRoomId === newState.roomId) {
         console.groupCollapsed(`[DEBUG] gameStateUpdate Received for room ${newState.roomId}`);
         console.log("Timestamp:", new Date().toLocaleTimeString());
-        // console.log("Previous Game State (snapshot):", previousGameState ? JSON.parse(JSON.stringify(previousGameState)) : null);
-        // console.log("New State from Server:", JSON.parse(JSON.stringify(newState)));
-
         const myPlayerDataInNewState = newState.players.find(p => p.userId === myUserId);
         if (myPlayerDataInNewState) {
             console.log(`My Hand in new state (${myPlayerDataInNewState.username}):`,
@@ -251,10 +257,8 @@ socket.on('gameStateUpdate', (newState) => {
                 myCurrentHand = JSON.parse(JSON.stringify(myPlayerInOldState.hand));
             }
         }
-
         previousGameState = currentGameState ? JSON.parse(JSON.stringify(currentGameState)) : null;
         currentGameState = newState;
-
         if (myCurrentHand && myCurrentHand.length > 0) {
             const myPlayerInNewStateUpdated = currentGameState.players.find(p => p.userId === myUserId);
             if (myPlayerInNewStateUpdated && !myPlayerInNewStateUpdated.finished && myPlayerInNewStateUpdated.hand === undefined) {
@@ -262,7 +266,6 @@ socket.on('gameStateUpdate', (newState) => {
                 myPlayerInNewStateUpdated.hand = myCurrentHand;
             }
         }
-
         if (previousGameState && ( (previousGameState.currentPlayerId === myUserId && currentGameState.currentPlayerId !== myUserId) || (!currentGameState.lastHandInfo && previousGameState.lastHandInfo && currentGameState.currentPlayerId === myUserId) ) ) {
             selectedCards = [];
             clearHintsAndSelection(true);
