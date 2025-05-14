@@ -1,8 +1,23 @@
 /* public/style.css */
-/* ... (保留之前的 html, body, .hidden-view, .view, Login/Lobby styles) ... */
-html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #e0e0e0; color: #333; font-size: 16px; -webkit-tap-highlight-color: transparent; }
-.hidden-view { display: none !important; } .view-block { display: block !important; } .view-flex { display: flex !important; flex-direction: column; } .overlay.view-flex { justify-content: center; align-items: center; }
-.view { background-color: #f5f5f5; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 10px; margin: 20px auto; padding: 25px; box-sizing: border-box; }
+html, body {
+    height: 100%; margin: 0; padding: 0; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #e0e0e0;
+    color: #333;
+    font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.hidden-view { display: none !important; }
+.view-block { display: block !important; }
+.view-flex { display: flex !important; flex-direction: column; }
+.overlay.view-flex { justify-content: center; align-items: center; }
+
+/* --- Login/Lobby Views Styles --- */
+.view {
+    background-color: #f5f5f5; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border-radius: 10px; margin: 20px auto; padding: 25px; box-sizing: border-box;
+}
 #loginRegisterView, #lobbyView, #loadingView { width: 90%; max-width: 600px; color: #333; }
 #loadingView.view-block { text-align: center; padding-top: 50px; font-size: 1.2em; color: #555; background-color: transparent; box-shadow: none;}
 #authFormContainer { display: flex; flex-wrap: wrap; justify-content: space-around; margin-bottom: 20px; gap: 20px; }
@@ -20,7 +35,6 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 .message { margin-top: 12px; font-weight: bold; text-align: center; font-size: 0.85em; min-height: 1.1em; padding: 6px; border-radius: 4px; color: #444;}
 .message.error { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
 .message.success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
-
 
 /* --- Game View Layout --- */
 #roomView { width: 100%; height: 100%; padding: 0; background-color: transparent; display: flex; flex-direction: column;}
@@ -49,12 +63,12 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 /* Player Area Base Styles */
 .playerArea {
     display: flex; flex-direction: column; align-items: center; text-align: center;
-    padding: 3px; box-sizing: border-box; /* Reduced padding */
-    min-width: 80px; /* Reduced min-width */
+    padding: 3px; box-sizing: border-box;
+    min-width: 80px;
 }
 .playerHeader { display: flex; flex-direction: column; align-items: center; margin-bottom: 1px; }
 .player-avatar {
-    width: 30px; height: 30px; /* Further reduced */
+    width: 30px; height: 30px;
     border-radius: 50%; background-color: #d0d0d0;
     background-size: cover; background-position: center;
     flex-shrink: 0; border: 1px solid #b0b0b0;
@@ -72,30 +86,49 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 /* Opponent Player Areas */
 .opponent-area { position: absolute; z-index: 100; }
 .opponent-top { top: 5px; left: 50%; transform: translateX(-50%); padding-top: 0;}
-.opponent-left { top: 30%; left: 5px; transform: translateY(-50%); } /* Higher and closer */
-.opponent-right { top: 30%; right: 5px; transform: translateY(-50%); } /* Higher and closer */
+.opponent-left { top: 30%; left: 5px; transform: translateY(-50%); }
+.opponent-right { top: 30%; right: 5px; transform: translateY(-50%); }
 
 .opponentHand {
     display: flex; justify-content: center; align-items: center;
-    width: auto; min-width: 40px; height: 50px; /* Reduced */
-    position: relative; margin-top: 2px; /* Less margin */
+    width: auto; min-width: 40px; /* Enough for stacked cards */
+    height: 50px; /* Height of stacked cards */
+    position: relative; margin-top: 2px;
 }
+/* Opponent cards will be smaller and stacked by JS */
+.opponentHand .card {
+    position: absolute; /* For stacking */
+    width: 45px; /* Smaller opponent cards */
+    height: 63px;
+    font-size: 0.6em; /* Adjust font for smaller cards */
+    border-radius: 3px;
+    box-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.1);
+}
+.opponentHand .card .rank { font-size: 0.9em; }
+.opponentHand .card .suit { font-size: 1em; }
+
 
 /* Center Area */
 #centerArea {
-    position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); /* Slightly higher */
-    width: auto; max-width: 60%; min-width: 150px; /* Reduced */
+    position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%);
+    width: auto; max-width: 70%; min-width: 150px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 5px; z-index: 50; min-height: 110px; /* Reduced */
+    padding: 5px; z-index: 50; min-height: 180px; /* Adjusted for new larger card height */
 }
 #centerInfo { text-align: center; margin-bottom: 3px; width: 100%; }
 #centerInfo #lastHandText { font-size: 0.7em; color: #666; margin: 0 0 1px 0; }
 #centerInfo #lastHandTypeDisplay { font-size: 0.75em; color: #444; font-weight: bold; min-height: 1em; }
 #centerPileArea {
     display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
-    width: 100%; min-height: 85px; /* Reduced for smaller cards */
+    width: 100%; min-height: 150px; /* Adjusted for new larger card height */
     padding: 2px; box-sizing: border-box;
 }
+/* Center pile cards will use the larger user card size */
+#centerPileArea .card {
+    position: relative; margin: 2px;
+    width: 150px; height: 210px; font-size: 1.3em; border-radius: 8px; /* Large cards */
+}
+
 
 /* Self Area (Bottom: Hand, Avatar/Info, Buttons) */
 #playerAreaBottom.selfArea {
@@ -103,39 +136,40 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
     bottom: 25px; /* Space for gameStatusDisplay */
     left: 0; right: 0;
     display: flex;
-    flex-direction: column; /* Stack hand, then info, then buttons */
+    flex-direction: column;
     align-items: center;
     padding: 0 5px;
     box-sizing: border-box;
     z-index: 200;
 }
 
-/* My Hand (should be on top within selfArea) */
+/* My Hand (on top in selfArea) */
 #myHand.playerCards.myHand {
     order: 1; /* Hand first */
     width: 100%; max-width: 95vw;
-    min-height: 95px; /* Adjusted for smaller cards */
+    min-height: 230px; /* For larger cards + overlap */
     overflow-x: auto; overflow-y: hidden;
     display: flex; justify-content: center; align-items: flex-end;
-    padding-bottom: 5px; /* Space before avatar/info */
-    margin-bottom: 3px;
+    padding-bottom: 5px;
+    margin-bottom: 5px; /* Space before avatar/info */
     scrollbar-width: thin; scrollbar-color: #b0b0b0 #e0e0e0;
 }
-#myHand.playerCards.myHand::-webkit-scrollbar { height: 4px; } /* Thinner scrollbar */
+#myHand.playerCards.myHand::-webkit-scrollbar { height: 4px; }
 
-/* Container for self avatar, info, ready button (below hand) */
+/* Container for self avatar, info, ready button (middle in selfArea) */
 #playerAreaBottom .self-player-info-container {
     order: 2; /* Avatar/info second */
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 3px; /* Space before action buttons */
+    margin-bottom: 5px; /* Space before action buttons */
 }
-#playerAreaBottom .self-player-info-container .player-avatar { width: 30px; height: 30px;}
+#playerAreaBottom .self-player-info-container .player-avatar { width: 30px; height: 30px;} /* Consistent with opponent avatar size */
 #playerAreaBottom .self-player-info-container .playerHeader { flex-direction: column; align-items: center; }
 #readyButton { padding: 3px 7px; font-size: 0.7em; margin-top: 2px; }
+#readyButton.ready { background-color: #f44336; border-color: #d32f2f; }
 
-/* Action Buttons (below avatar/info) */
+/* Action Buttons (bottom in selfArea) */
 .my-actions-container {
     order: 3; /* Buttons last */
     display: flex; justify-content: center; align-items: center;
@@ -149,76 +183,105 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 #playSelectedCardsButton { background-color: #4CAF50; border: 1px solid #388E3C; }
 #playSelectedCardsButton:disabled { background-color: #9E9E9E; border-color: #757575; }
 
-/* Card Styles (Adjusted to be smaller) */
+/* General Card Styles (for My Hand - Large Cards) */
 .card {
-    border: 1px solid #b0b0b0; border-radius: 5px; /* Smaller radius */
-    width: 60px; height: 84px; /* Smaller cards */
-    background-color: #fff; color: #222; font-size: 0.75em; /* Smaller font */
-    box-shadow: 1px 1px 1px rgba(0,0,0,0.06); /* Lighter shadow */
+    border: 1px solid #a0a0a0;
+    border-radius: 8px;
+    width: 150px; /* Large card width */
+    height: 210px; /* Large card height */
+    background-color: #fff; color: #222; font-size: 1.3em;
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.12);
     background-size: contain; background-repeat: no-repeat; background-position: center;
     display: flex; flex-direction: column; justify-content: space-around; align-items: center;
     overflow: hidden; flex-shrink: 0;
-    transition: transform 0.08s ease-out; /* Even faster transition */
-    user-select: none; padding: 3px 1px; box-sizing: border-box;
+    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+    user-select: none; padding: 6px 3px; box-sizing: border-box;
 }
-.opponentHand .card { position: absolute; transform-origin: center center; }
-#myHand.myHand .card { position: relative; transform-origin: bottom center; cursor: pointer; z-index: 10; margin: 0 1px; }
 .card.hidden { background-image: url('/images/card-back.png'); border-color: #777; }
-.card .rank { font-weight: bold; font-size: 1em; } /* Smaller */
-.card .suit { font-size: 1.1em; } /* Smaller */
+.card .rank { font-weight: bold; font-size: 1.4em; }
+.card .suit { font-size: 1.6em; }
 .card.hearts .suit, .card.diamonds .suit, .card.hearts .rank, .card.diamonds .rank { color: #d32f2f; }
 .card.spades .suit, .card.clubs .suit, .card.spades .rank, .card.clubs .rank { color: #333; }
-#myHand.myHand .card:hover { transform: translateY(-10px) scale(1.02); z-index: 100 !important; }
-#myHand.myHand .card.selected { border: 2px solid #007bff; transform: translateY(-8px) scale(1.01); z-index: 99 !important; }
-#myHand.myHand .card.hinted { border: 2px dashed orange; transform: translateY(-5px); }
+
+/* My Hand Specific Card Interaction & Overlap */
+#myHand.myHand .card {
+    position: relative; transform-origin: bottom center; cursor: pointer; z-index: 10;
+    margin-left: -110px; /* Overlap: (150px card width - 40px visible part) */
+}
+#myHand.myHand .card:first-child { margin-left: 0; }
+#myHand.myHand .card:hover { transform: translateY(-30px) scale(1.07); z-index: 100 !important; }
+#myHand.myHand .card.selected { border: 3px solid #007bff; transform: translateY(-25px) scale(1.05); z-index: 99 !important; }
+#myHand.myHand .card.hinted { border: 3px dashed orange; transform: translateY(-15px); }
 #myHand.myHand .card.disabled { opacity: 0.6; cursor: not-allowed; transform: translateY(0) !important; }
-#centerPileArea .card { position: relative; margin: 1px; width: 60px; height: 84px; font-size: 0.75em; } /* Tighter margin */
-.playerArea.current-turn .player-avatar { box-shadow: 0 0 5px 1px gold; } /* Smaller glow */
+
+.playerArea.current-turn .player-avatar { box-shadow: 0 0 5px 1px gold; }
 
 /* Game Status Display */
 #gameStatusDisplay  {
-    position: absolute;
-    bottom: 3px; /* Closer to bottom edge */
-    left: 50%; transform: translateX(-50%);
+    position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
     background-color: rgba(230, 230, 230, 0.88);
-    padding: 2px 7px; border-radius: 8px; /* Smaller padding/radius */
-    font-size: 0.7em; color: #333; /* Smaller */
+    padding: 2px 7px; border-radius: 8px;
+    font-size: 0.7em; color: #333;
     z-index: 350; min-height: 1em; white-space: nowrap;
     box-shadow: 0 1px 1px rgba(0,0,0,0.05);
 }
 
-/* Overlay Styles (minor tweaks for smaller screens possibly) */
+/* Overlay Styles */
 .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); z-index: 1000; }
 .overlay-content { background-color: #fefefe; padding: 18px; border-radius: 8px; text-align: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22); max-width: 90%; width: 380px; color: #333;}
 #gameOverScores p { margin: 5px 0; font-size: 0.95em; }
+#gameOverScores .score-plus { color: #28a745; font-weight: bold; }
+#gameOverScores .score-minus { color: #dc3545; font-weight: bold; }
+#gameOverScores .score-zero { color: #6c757d; }
 
 /* Hand Count Display for Opponents */
 .hand-count-display {
-    font-size: 0.7em; color: #fff; background-color: rgba(0,0,0,0.7); /* More opaque */
-    padding: 1px 4px; border-radius: 6px; z-index: 150;
-    position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
+    font-size: 0.7em; color: #fff; background-color: rgba(0,0,0,0.7);
+    padding: 1px 4px; border-radius: 6px; z-index: 160; /* Above cards */
+    position: absolute;
+    bottom: 0px; /* Position at the bottom of the opponent card area */
+    left: 50%;
+    transform: translateX(-50%);
     white-space: nowrap;
 }
+/* For side players, if .opponentHand has a fixed height, this might need to be relative to .playerArea */
 .opponent-left .hand-count-display, .opponent-right .hand-count-display {
-    bottom: auto; top: calc(100% - 5px); /* Adjusted to be slightly above bottom of parent */
+     bottom: 0px; /* Adjust if needed */
 }
 
-/* --- Responsive Adjustments (Simplified, further adjustments might be needed) --- */
-@media (max-height: 500px), (max-width: 600px) {
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 1200px) { /* Larger tablets / smaller desktops */
+    .card { width: 120px; height: 168px; font-size: 1.1em; }
+    #myHand.myHand .card { margin-left: -90px; }
+    #centerPileArea .card { width: 120px; height: 168px; font-size: 1.1em; }
+    #myHand.playerCards.myHand { min-height: 190px; }
+    #centerArea { min-height: 190px; } #centerPileArea { min-height: 180px; }
+    .opponentHand .card { width: 40px; height: 56px; } /* Keep opponent cards small */
+    .opponentHand { height: 65px; }
+}
+
+@media (max-width: 900px) { /* Tablets */
+    .card { width: 90px; height: 126px; font-size: 0.9em; }
+    #myHand.myHand .card { margin-left: -65px; } /* Adjust overlap for smaller cards */
+    #centerPileArea .card { width: 90px; height: 126px; font-size: 0.9em; }
+    #myHand.playerCards.myHand { min-height: 145px; }
+    #centerArea { min-height: 150px; } #centerPileArea { min-height: 140px; }
+    .opponentHand .card { width: 35px; height: 49px; }
+    .opponentHand { height: 60px; }
+    .my-actions-container button { min-width: 50px; height: 35px; font-size: 0.8em;}
+}
+
+@media (max-width: 600px) { /* Mobile screens */
     #gameArea { padding-top: 35px; padding-bottom: 20px; }
     #gameInfoBar { height: 30px; font-size:0.8em; }
-    #gameInfoBar #leaveRoomButton {padding:3px 6px; font-size: 0.75em;}
-    .card { width: 50px; height: 70px; font-size: 0.7em; border-radius: 3px;}
-    #myHand.myHand .card, #centerPileArea .card { width: 50px; height: 70px; }
-    .card .rank { font-size: 0.9em; } .card .suit { font-size: 1em; }
-    #myHand.myHand { min-height: 80px; }
-    #centerPileArea { min-height: 75px; }
+    .card { width: 70px; height: 98px; font-size: 0.8em; border-radius: 4px;}
+    #myHand.myHand .card { margin-left: -50px; }
+    #centerPileArea .card { width: 70px; height: 98px; font-size: 0.8em; }
+    #myHand.playerCards.myHand { min-height: 110px; }
+    #centerArea { top: 42%; min-height: 115px; } #centerPileArea { min-height: 105px; }
+    .opponentHand .card { width: 30px; height: 42px; }
+    .opponentHand { height: 50px; }
     .my-actions-container button { min-width: 40px; height: 28px; font-size: 0.7em;}
-    .player-avatar { width: 26px; height: 26px; }
-    .playerName { font-size: 0.7em; } .playerRole { font-size: 0.6em; }
-    .opponentHand { height: 40px; }
-    #gameStatusDisplay { font-size: 0.65em; padding: 1px 5px; bottom: 2px;}
-    .hand-count-display { font-size: 0.65em; bottom: -5px; }
-    #playerAreaBottom.selfArea { bottom: 20px; }
-    #centerArea { top: 42%; } /* Push center up a bit more on very small screens */
+    .player-avatar { width: 28px; height: 28px;}
 }
