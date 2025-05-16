@@ -1,5 +1,3 @@
---- START OF FILE client.js ---
-
 // public/client.js
 const socket = io({
     reconnectionAttempts: 5,
@@ -125,7 +123,7 @@ function showView(viewName) {
         selectedCards = [];
         currentHint = null;
         currentHintCycleIndex = 0;
-        if (currentView !== 'gameOverOverlay') { 
+        if (currentView !== 'gameOverOverlay') {
             currentGameState = null;
             previousGameState = null;
         }
@@ -134,11 +132,11 @@ function showView(viewName) {
     if (voiceControlsContainer) {
         if (viewName === 'roomView') {
             voiceControlsContainer.classList.remove('hidden-view');
-            updateVoiceButtonStates(); 
+            updateVoiceButtonStates();
         } else {
             voiceControlsContainer.classList.add('hidden-view');
-            if (isVoiceChatEnabled) { 
-                disableVoiceChatFeatures(true); 
+            if (isVoiceChatEnabled) {
+                disableVoiceChatFeatures(true);
             }
         }
     }
@@ -156,24 +154,24 @@ function compareBySuitThenRank(cardA, cardB) { const suitValueA = SUIT_VALUES_CL
 
 // --- WebRTC Utility Functions ---
 async function startLocalAudio() {
-    if (localStream) return true; 
+    if (localStream) return true;
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         console.log('[VOICE] Local audio stream obtained.');
-        localStream.getAudioTracks().forEach(track => track.enabled = false); 
+        localStream.getAudioTracks().forEach(track => track.enabled = false);
         return true;
     } catch (error) {
         console.error('[VOICE] Error accessing microphone:', error);
-        const msgElement = document.getElementById('gameStatusDisplay') || authMessage; // Fallback to authMessage
+        const msgElement = document.getElementById('gameStatusDisplay') || authMessage; 
         if (msgElement) displayMessage(msgElement, '麦克风权限获取失败。', true);
-        localStream = null; 
+        localStream = null;
         return false;
     }
 }
 
 function stopLocalAudio() {
     if (localStream) {
-        localStream.getTracks().forEach(track => track.stop()); 
+        localStream.getTracks().forEach(track => track.stop());
         localStream = null;
         console.log('[VOICE] Stopped local audio stream.');
     }
@@ -182,7 +180,7 @@ function stopLocalAudio() {
 function createPeerConnection(targetUserId) {
     if (peerConnections[targetUserId]) {
         console.log(`[VOICE] PeerConnection with ${targetUserId} already exists. Closing old one first.`);
-        peerConnections[targetUserId].close(); 
+        peerConnections[targetUserId].close();
         delete peerConnections[targetUserId];
     }
 
@@ -191,12 +189,12 @@ function createPeerConnection(targetUserId) {
     peerConnections[targetUserId] = pc;
 
     pc.onicecandidate = (event) => {
-        if (event.candidate && socket.connected) { 
+        if (event.candidate && socket.connected) {
             socket.emit('webrtc-ice-candidate', {
                 targetUserId: targetUserId,
                 candidate: event.candidate,
                 roomId: currentRoomId,
-                fromUserId: myUserId 
+                fromUserId: myUserId
             });
         }
     };
@@ -219,7 +217,7 @@ function createPeerConnection(targetUserId) {
 
     if (localStream) {
         localStream.getTracks().forEach(track => {
-            if (pc.signalingState !== 'closed') { 
+            if (pc.signalingState !== 'closed') {
                  try {
                     pc.addTrack(track, localStream);
                 } catch (e) {
@@ -232,11 +230,11 @@ function createPeerConnection(targetUserId) {
     }
 
     pc.oniceconnectionstatechange = () => {
-        if (!peerConnections[targetUserId]) return; // Check if PC still exists (might have been closed)
+        if (!peerConnections[targetUserId]) return; 
         console.log(`[VOICE] ICE connection state for ${targetUserId}: ${pc.iceConnectionState}`);
         if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
             console.warn(`[VOICE] Connection with ${targetUserId} ${pc.iceConnectionState}. Cleaning up.`);
-            closePeerConnection(targetUserId); 
+            closePeerConnection(targetUserId);
         }
     };
     return pc;
@@ -257,7 +255,7 @@ async function makeCall(targetUserId) {
     }
 
     console.log(`[VOICE] Attempting to make call to ${targetUserId} in room ${currentRoomId}`);
-    const pc = createPeerConnection(targetUserId); 
+    const pc = createPeerConnection(targetUserId);
     try {
         const offer = await pc.createOffer();
         if (pc.signalingState === 'closed') { console.warn(`[VOICE] PC for ${targetUserId} closed before offer could be set.`); return; }
@@ -275,7 +273,7 @@ async function makeCall(targetUserId) {
         }
     } catch (error) {
         console.error(`[VOICE] Error creating/sending offer for ${targetUserId}:`, error);
-        closePeerConnection(targetUserId); 
+        closePeerConnection(targetUserId);
     }
 }
 
@@ -288,13 +286,13 @@ function closePeerConnection(userId) {
         if (pc.signalingState !== 'closed') {
             pc.close();
         }
-        delete peerConnections[userId]; // Remove from our map
+        delete peerConnections[userId];
         console.log(`[VOICE] Closed PeerConnection with ${userId}`);
     }
     if (remoteAudioContainer) {
         const audioEl = document.getElementById(`audio-${userId}`);
         if (audioEl) {
-            audioEl.srcObject = null; 
+            audioEl.srcObject = null;
             audioEl.remove();
         }
     }
@@ -305,18 +303,17 @@ function closeAllPeerConnections() {
     Object.keys(peerConnections).forEach(userId => {
         closePeerConnection(userId);
     });
-    // peerConnections map is cleared by individual calls to closePeerConnection
-    if (remoteAudioContainer) remoteAudioContainer.innerHTML = ''; 
+    if (remoteAudioContainer) remoteAudioContainer.innerHTML = '';
 }
 
 async function enableVoiceChatFeatures() {
-    if (!currentGameState || !myUserId || !currentRoomId) { 
+    if (!currentGameState || !myUserId || !currentRoomId) {
         console.warn('[VOICE] Cannot enable voice chat, not in a valid game/room state.');
-        isVoiceChatEnabled = false; 
+        isVoiceChatEnabled = false;
         updateVoiceButtonStates();
         return;
     }
-    const micStarted = await startLocalAudio(); 
+    const micStarted = await startLocalAudio();
     if (!micStarted) {
         isVoiceChatEnabled = false;
         updateVoiceButtonStates();
@@ -336,14 +333,14 @@ async function enableVoiceChatFeatures() {
 
 function disableVoiceChatFeatures(resetButtonStateAndText = false) {
     const wasEnabled = isVoiceChatEnabled;
-    isVoiceChatEnabled = false; 
+    isVoiceChatEnabled = false;
     if (wasEnabled) console.log('[VOICE] Voice chat disabled by user.');
 
-    stopLocalAudio(); 
-    closeAllPeerConnections(); 
+    stopLocalAudio();
+    closeAllPeerConnections();
 
     if (resetButtonStateAndText) {
-        updateVoiceButtonStates(); 
+        updateVoiceButtonStates();
     } else {
         if (toggleVoiceChatButton) toggleVoiceChatButton.textContent = '启用语音';
         if (pushToTalkButton) {
@@ -351,7 +348,7 @@ function disableVoiceChatFeatures(resetButtonStateAndText = false) {
             pushToTalkButton.classList.remove('ptt-active');
             pushToTalkButton.textContent = '按住说话';
         }
-        isPushToTalkActive = false; // Ensure PTT state is reset
+        isPushToTalkActive = false;
     }
 }
 
@@ -368,9 +365,9 @@ function updateVoiceButtonStates() {
         toggleVoiceChatButton.textContent = '启用语音';
         toggleVoiceChatButton.title = '点击开启语音聊天功能';
         pushToTalkButton.disabled = true;
-        pushToTalkButton.classList.remove('ptt-active'); 
+        pushToTalkButton.classList.remove('ptt-active');
         pushToTalkButton.textContent = '按住说话';
-        isPushToTalkActive = false; 
+        isPushToTalkActive = false;
     }
 }
 
@@ -386,9 +383,9 @@ function startPushToTalk() {
 }
 
 function stopPushToTalk() {
-    if (!isVoiceChatEnabled || !isPushToTalkActive) return; 
+    if (!isVoiceChatEnabled || !isPushToTalkActive) return;
     isPushToTalkActive = false;
-    if (localStream) { 
+    if (localStream) {
         localStream.getAudioTracks().forEach(track => track.enabled = false);
     }
     if (pushToTalkButton) {
@@ -451,8 +448,8 @@ function renderPlayerCards(containerParam, playerData, isMe, isMyTurnAndPlaying)
                 } else {
                     cardElement.classList.add('disabled');
                     cardElement.onclick = null;
-                    cardElement.classList.remove('selected'); 
-                    cardElement.classList.remove('hinted');  
+                    cardElement.classList.remove('selected');
+                    cardElement.classList.remove('hinted');
                 }
                 targetContainer.appendChild(cardElement);
             });
@@ -492,18 +489,18 @@ function handleRegister() { const phone = regPhoneInput.value.trim(); const pass
 function handleLogin() { const phone = loginPhoneInput.value.trim(); const password = loginPasswordInput.value; if (!phone || !password) { displayMessage(authMessage, '请输入手机号和密码。', true); return; } loginButton.disabled = true; socket.emit('login', { phoneNumber: phone, password }, (response) => { loginButton.disabled = false; displayMessage(authMessage, response.message, !response.success, response.success); if (response.success) { myUserId = response.userId; myUsername = response.username; try { localStorage.setItem('kkUserId', myUserId); localStorage.setItem('kkUsername', myUsername); } catch (e) { console.warn('LocalStorage error while saving user session:', e); } if(lobbyUsername) lobbyUsername.textContent = myUsername; showView('lobbyView'); socket.emit('listRooms', (rooms) => renderRoomList(rooms)); } }); }
 function handleLogout() {
     console.log('Logging out...');
-    disableVoiceChatFeatures(true); 
+    disableVoiceChatFeatures(true);
     try { localStorage.removeItem('kkUserId'); localStorage.removeItem('kkUsername'); } catch (e) { console.warn('LocalStorage error while removing user session:', e); }
     myUserId = null; myUsername = null; currentRoomId = null; currentGameState = null; previousGameState = null; isReadyForGame = false; selectedCards = []; currentHint = null; currentHintCycleIndex = 0;
     if (socket.connected) { socket.disconnect(); }
-    socket.connect(); 
+    socket.connect();
     showView('loginRegisterView');
     if(loginPhoneInput) loginPhoneInput.value = ''; if(loginPasswordInput) loginPasswordInput.value = '';
 }
 function handleGameLeave() {
     if (!currentRoomId) { console.log("Not in a room to leave."); handleReturnToLobby(); return; }
     console.log(`Attempting to leave room: ${currentRoomId} from game view.`);
-    disableVoiceChatFeatures(true); 
+    disableVoiceChatFeatures(true);
 
     const actualLeaveButton = document.getElementById('leaveRoomButton');
     if (actualLeaveButton) actualLeaveButton.disabled = true;
@@ -529,7 +526,7 @@ function setGameActionButtonsDisabled(disabled) { if (playSelectedCardsButton) p
 function highlightHintedCards(hintedCardsArray) { if (!hintedCardsArray || hintedCardsArray.length === 0) return; const localMyHandArea = document.getElementById('myHand'); if (!localMyHandArea) return; const cardElements = localMyHandArea.querySelectorAll('.card.visible:not(.hidden):not(.disabled)'); hintedCardsArray.forEach(hintCard => { for(const elem of cardElements) { if(elem.dataset.rank === hintCard.rank && elem.dataset.suit === hintCard.suit) { elem.classList.add('hinted'); break; } } }); }
 function clearHintsAndSelection(resetHintCycleAndSelection = true) { const localMyHandArea = document.getElementById('myHand'); if (localMyHandArea) { const hintedElements = localMyHandArea.querySelectorAll('.card.hinted'); hintedElements.forEach(el => el.classList.remove('hinted')); } if (resetHintCycleAndSelection) { currentHint = null; currentHintCycleIndex = 0; selectedCards = []; if(playSelectedCardsButton) playSelectedCardsButton.disabled = true; if (localMyHandArea) { const selectedElements = localMyHandArea.querySelectorAll('.card.selected'); selectedElements.forEach(el => el.classList.remove('selected')); } } }
 function handleReturnToLobby() { console.log("Returning to lobby."); currentRoomId = null; currentGameState = null; previousGameState = null; isReadyForGame = false; selectedCards = []; currentHint = null; currentHintCycleIndex = 0; if (gameOverOverlay && !gameOverOverlay.classList.contains('hidden-view')) { gameOverOverlay.classList.add('hidden-view'); gameOverOverlay.classList.remove('view-flex'); } showView('lobbyView'); socket.emit('listRooms', (rooms) => { renderRoomList(rooms); }); }
-function showGameOver(scoreResultData) { if (!scoreResultData) { console.warn("showGameOver called with no data. Using last known game state if available."); gameOverTitle.textContent = "游戏结束!"; gameOverReason.textContent = currentGameState?.gameResult?.reason || "无法获取详细结果。"; gameOverScores.innerHTML = ''; const playersToDisplay = currentGameState?.players || []; playersToDisplay.forEach(playerData => { const p = document.createElement('p'); p.textContent = `${playerData.name} (${playerData.role || '?'}) 总分: ${playerData.score}`; gameOverScores.appendChild(p); }); } else { gameOverTitle.textContent = scoreResultData.result || "游戏结束!"; gameOverReason.textContent = scoreResultData.reason || (scoreResultData.result ? '' : "游戏正常结束。"); gameOverScores.innerHTML = ''; const playersToDisplay = scoreResultData.finalScores || currentGameState?.players || []; playersToDisplay.forEach(playerData => { const p = document.createElement('p'); let scoreText = `${playerData.username || playerData.name} (${playerData.role || '?'})`; if (scoreResultData.scoreChanges && scoreResultData.scoreChanges[playerData.userId] !== undefined) { const change = scoreResultData.scoreChanges[playerData.userId]; const changeDisplay = change > 0 ? `+${change}` : (change < 0 ? `${change}` : '0'); const changeClass = change > 0 ? 'score-plus' : (change < 0 ? 'score-minus' : 'score-zero'); scoreText += ` : <span class="${changeClass}">${changeDisplay}</span>`; } else if (scoreResultData.scoreChanges && scoreResultData.scoreChanges[playerData.id] !== undefined) { const change = scoreResultData.scoreChanges[playerData.id]; const changeDisplay = change > 0 ? `+${change}` : (change < 0 ? `${change}` : '0'); const changeClass = change > 0 ? 'score-plus' : (change < 0 ? 'score-minus' : 'score-zero'); scoreText += ` : <span class="${changeClass}">${changeDisplay}</span>`;} scoreText += ` (总分: ${playerData.score})`; p.innerHTML = scoreText; gameOverScores.appendChild(p); }); } showView('gameOverOverlay'); disableVoiceChatFeatures(true); }
+function showGameOver(scoreResultData) { if (!scoreResultData) { console.warn("showGameOver called with no data. Using last known game state if available."); gameOverTitle.textContent = "游戏结束!"; gameOverReason.textContent = currentGameState?.gameResult?.reason || "无法获取详细结果。"; gameOverScores.innerHTML = ''; const playersToDisplay = currentGameState?.players || []; playersToDisplay.forEach(playerData => { const p = document.createElement('p'); p.textContent = `${playerData.username || playerData.name} (${playerData.role || '?'}) 总分: ${playerData.score}`; gameOverScores.appendChild(p); }); } else { gameOverTitle.textContent = scoreResultData.result || "游戏结束!"; gameOverReason.textContent = scoreResultData.reason || (scoreResultData.result ? '' : "游戏正常结束。"); gameOverScores.innerHTML = ''; const playersToDisplay = scoreResultData.finalScores || currentGameState?.players || []; playersToDisplay.forEach(playerData => { const p = document.createElement('p'); let scoreText = `${playerData.username || playerData.name} (${playerData.role || '?'})`; if (scoreResultData.scoreChanges && scoreResultData.scoreChanges[playerData.userId] !== undefined) { const change = scoreResultData.scoreChanges[playerData.userId]; const changeDisplay = change > 0 ? `+${change}` : (change < 0 ? `${change}` : '0'); const changeClass = change > 0 ? 'score-plus' : (change < 0 ? 'score-minus' : 'score-zero'); scoreText += ` : <span class="${changeClass}">${changeDisplay}</span>`; } else if (scoreResultData.scoreChanges && scoreResultData.scoreChanges[playerData.id] !== undefined) { const change = scoreResultData.scoreChanges[playerData.id]; const changeDisplay = change > 0 ? `+${change}` : (change < 0 ? `${change}` : '0'); const changeClass = change > 0 ? 'score-plus' : (change < 0 ? 'score-minus' : 'score-zero'); scoreText += ` : <span class="${changeClass}">${changeDisplay}</span>`;} scoreText += ` (总分: ${playerData.score})`; p.innerHTML = scoreText; gameOverScores.appendChild(p); }); } showView('gameOverOverlay'); disableVoiceChatFeatures(true); }
 
 // --- Socket Event Handlers ---
 socket.on('connect', () => { console.log('[NET] Connected to server! Socket ID:', socket.id); if (gameOverOverlay && !gameOverOverlay.classList.contains('hidden-view')) { gameOverOverlay.classList.add('hidden-view'); gameOverOverlay.classList.remove('view-flex'); } initClientSession(); });
@@ -540,7 +537,7 @@ socket.on('playerReadyUpdate', ({ userId, isReady }) => { console.log(`[EVENT] p
 socket.on('playerJoined', (newPlayerInfo) => { console.log(`[EVENT] Player joined: ${newPlayerInfo.username}`); if (currentView === 'roomView' && currentGameState) { previousGameState = JSON.parse(JSON.stringify(currentGameState)); const existingPlayer = currentGameState.players.find(p => p.userId === newPlayerInfo.userId); if (existingPlayer) { Object.assign(existingPlayer, newPlayerInfo, {connected: true});} else { currentGameState.players.push({ ...newPlayerInfo, score:0, hand:undefined, handCount:0, role:null, finished:false, connected:true }); currentGameState.players.sort((a,b) => a.slot - b.slot); } renderRoomView(currentGameState); displayMessage(document.getElementById('gameStatusDisplay'), `${newPlayerInfo.username} 加入了房间。`, false, true); if (isVoiceChatEnabled && newPlayerInfo.userId !== myUserId && newPlayerInfo.connected) { console.log(`[VOICE] New player ${newPlayerInfo.username} joined. Making call (voice chat enabled).`); makeCall(newPlayerInfo.userId); } } else if (currentView === 'roomView' && !currentGameState) { socket.emit('requestGameState', (state) => { if(state) { currentGameState = state; renderRoomView(state); } }); } });
 socket.on('playerLeft', ({ userId, username, reason }) => { console.log(`[EVENT] Player left: ${username}, Reason: ${reason}`); if (currentGameState && currentView === 'roomView') { closePeerConnection(userId); const playerIdx = currentGameState.players.findIndex(p => p.userId === userId); if (playerIdx > -1) { currentGameState.players.splice(playerIdx, 1); } renderRoomView(currentGameState); displayMessage(document.getElementById('gameStatusDisplay'), `${username} ${reason === 'disconnected' ? '断线了' : '离开了房间'}。`, true); } });
 socket.on('playerReconnected', (reconnectedPlayerInfo) => { console.log(`[EVENT] Player reconnected: ${reconnectedPlayerInfo.username}`); if (currentView === 'roomView' && currentGameState) { previousGameState = JSON.parse(JSON.stringify(currentGameState)); const player = currentGameState.players.find(p => p.userId === reconnectedPlayerInfo.userId); if (player) { Object.assign(player, reconnectedPlayerInfo, {connected: true});} else { currentGameState.players.push({ ...reconnectedPlayerInfo, score:0, hand:undefined, handCount:0, role:null, finished:false, connected:true }); currentGameState.players.sort((a,b) => a.slot - b.slot); } renderRoomView(currentGameState); displayMessage(document.getElementById('gameStatusDisplay'), `${reconnectedPlayerInfo.username} 重新连接。`, false, true); if (isVoiceChatEnabled && reconnectedPlayerInfo.userId !== myUserId && reconnectedPlayerInfo.connected) { console.log(`[VOICE] Player ${reconnectedPlayerInfo.username} reconnected. Making call.`); makeCall(reconnectedPlayerInfo.userId); } } else if (currentView === 'roomView' && !currentGameState) { socket.emit('requestGameState', (state) => { if(state) { currentGameState = state; renderRoomView(state); } }); } });
-socket.on('gameStarted', (initialGameState) => { console.log(`[EVENT] gameStarted received for room ${initialGameState.roomId}. My current room: ${currentRoomId}`); if (currentView !== 'roomView' || currentRoomId !== initialGameState.roomId) { console.warn("[DEBUG] gameStarted: Not in the correct view or room. IGNORED."); return; } const myInitialPlayerState = initialGameState.players.find(p => p.userId === myUserId); console.log('[DEBUG] gameStarted: My hand in initialGameState:', myInitialPlayerState?.hand?.length); previousGameState = currentGameState ? JSON.parse(JSON.stringify(currentGameState)) : null; currentGameState = initialGameState; const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (gameStatusDisp) displayMessage(gameStatusDisp, '游戏开始！祝你好运！', false, true); selectedCards = []; clearHintsAndSelection(true); console.log('[DEBUG] gameStarted: Calling full renderRoomView.'); renderRoomView(currentGameState); if (isVoiceChatEnabled) { console.log("[VOICE] Game started. Re-initializing voice connections for current players."); disableVoiceChatFeatures(false); setTimeout(() => enableVoiceChatFeatures(), 200); // Small delay for state updates
+socket.on('gameStarted', (initialGameState) => { console.log(`[EVENT] gameStarted received for room ${initialGameState.roomId}. My current room: ${currentRoomId}`); if (currentView !== 'roomView' || currentRoomId !== initialGameState.roomId) { console.warn("[DEBUG] gameStarted: Not in the correct view or room. IGNORED."); return; } const myInitialPlayerState = initialGameState.players.find(p => p.userId === myUserId); console.log('[DEBUG] gameStarted: My hand in initialGameState:', myInitialPlayerState?.hand?.length); previousGameState = currentGameState ? JSON.parse(JSON.stringify(currentGameState)) : null; currentGameState = initialGameState; const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (gameStatusDisp) displayMessage(gameStatusDisp, '游戏开始！祝你好运！', false, true); selectedCards = []; clearHintsAndSelection(true); console.log('[DEBUG] gameStarted: Calling full renderRoomView.'); renderRoomView(currentGameState); if (isVoiceChatEnabled) { console.log("[VOICE] Game started. Re-initializing voice connections for current players."); disableVoiceChatFeatures(false); setTimeout(() => enableVoiceChatFeatures(), 200); 
     } else { updateVoiceButtonStates(); } });
 socket.on('gameStateUpdate', (newState) => { if (currentView !== 'roomView' || !currentGameState || currentRoomId !== newState.roomId) { console.warn("[DEBUG] gameStateUpdate: Ignoring, not in room view or state mismatch."); return; } previousGameState = JSON.parse(JSON.stringify(currentGameState)); currentGameState = newState; const myNewPlayerState = currentGameState.players.find(p => p.userId === myUserId); if (myNewPlayerState) { if (myNewPlayerState.hand !== undefined) { if (!myNewPlayerState.finished) { /* console.log(`[DEBUG] My hand updated by server`); */ } } else if (myNewPlayerState.handCount === 0 && !myNewPlayerState.finished) { myNewPlayerState.hand = []; } } if (previousGameState.currentPlayerId === myUserId && currentGameState.currentPlayerId !== myUserId) { selectedCards = []; clearHintsAndSelection(true); } else if (currentGameState.currentPlayerId === myUserId && !currentGameState.lastHandInfo && previousGameState.lastHandInfo) { selectedCards = []; clearHintsAndSelection(true); } renderRoomView(currentGameState); });
 socket.on('invalidPlay', ({ message }) => { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (gameStatusDisp) displayMessage(gameStatusDisp, `操作无效: ${message}`, true); if (currentGameState && currentGameState.status === 'playing' && currentGameState.currentPlayerId === myUserId) { updateRoomControls(currentGameState); } });
@@ -551,14 +548,13 @@ socket.on('allPlayersResetReady', () => { const gameStatusDisp = document.getEle
 // --- WebRTC Signaling Socket Handlers ---
 socket.on('webrtc-offer', async (data) => {
     const { sdp, fromUserId, roomId } = data;
-    if (roomId !== currentRoomId || fromUserId === myUserId) return; 
+    if (roomId !== currentRoomId || fromUserId === myUserId) return;
 
     if (!isVoiceChatEnabled) {
         console.log(`[VOICE] Received offer from ${fromUserId}, but local voice chat is disabled. Ignoring.`);
         return;
     }
-    // Attempt to start audio if not already; this is crucial if user enabled voice after offer was sent
-    if (!localStream && !(await startLocalAudio())) { 
+    if (!localStream && !(await startLocalAudio())) {
         console.warn(`[VOICE] Cannot process offer from ${fromUserId}, local stream not ready/failed to start.`);
         return;
     }
@@ -611,26 +607,24 @@ socket.on('webrtc-ice-candidate', async (data) => {
     if (!isVoiceChatEnabled) return;
 
     const pc = peerConnections[fromUserId];
-    if (pc && pc.signalingState !== 'closed' && candidate) { 
+    if (pc && pc.signalingState !== 'closed' && candidate) {
         try {
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (error) {
-            // Suppress common benign errors, log others
-            if (!error.message.includes("remote description is set") && 
+            if (!error.message.includes("remote description is set") &&
                 !error.message.includes("connection is closed") &&
-                !error.message.includes("Cannot add ICE candidate when connection is closed") &&
-                !error.message.includes("Candidate cannot be added before setRemoteDescription")) {
+                !error.message.includes("Candidate cannot be added before setRemoteDescription") &&
+                !error.message.includes("Error processing ICE candidate")) { // Some browsers might have slightly different error messages
                  console.error(`[VOICE] Error adding ICE candidate from ${fromUserId}:`, error.message);
             }
         }
-    } else {
-        // console.warn(`[VOICE] No/Closed PC or no candidate for ICE from ${fromUserId}`);
     }
 });
 
 
 // --- Initialization ---
 function initClientSession() { let storedUserId = null; try { storedUserId = localStorage.getItem('kkUserId'); } catch (e) { console.warn('[INIT] Error accessing localStorage:', e); showView('loginRegisterView'); return; } if (storedUserId) { console.log(`[INIT] Found stored user ID: ${storedUserId}. Attempting reauthentication...`); showView('loadingView'); displayMessage(loadingView.querySelector('p'), "正在重新连接...", false); socket.emit('reauthenticate', storedUserId, (response) => { console.log(`[INIT] Reauthenticate response:`, response); if (response.success) { myUserId = response.userId; myUsername = response.username; if (lobbyUsername) lobbyUsername.textContent = myUsername; if (response.roomState) { currentRoomId = response.roomState.roomId; previousGameState = null; currentGameState = response.roomState; console.log(`[INIT] Reauthenticated into room: ${currentRoomId}, Status: ${currentGameState.status}.`); if (currentGameState.status === 'finished') { if (currentGameState.gameResult || currentGameState.finalScores) { console.log("[INIT] Reconnected to a FINISHED game, showing game over."); showView('roomView'); renderRoomView(currentGameState); showGameOver(currentGameState.gameResult || currentGameState); } else { console.log("[INIT] Reconnected to a FINISHED game (no specific result). Returning to lobby."); handleReturnToLobby(); } } else { console.log(`[INIT] Reconnected to room, status ${currentGameState.status}. Rendering room view.`); showView('roomView'); renderRoomView(currentGameState); if (isVoiceChatEnabled) { console.log("[VOICE] Reconnected to room, re-initializing voice."); disableVoiceChatFeatures(false); setTimeout(()=> enableVoiceChatFeatures(), 200); } else { updateVoiceButtonStates(); } } } else { console.log(`[INIT] Reauthenticated, no current room state. Going to lobby.`); showView('lobbyView'); socket.emit('listRooms', (rooms) => { renderRoomList(rooms); }); updateVoiceButtonStates(); } } else { console.warn(`[INIT] Reauthentication failed: ${response.message}`); try { localStorage.removeItem('kkUserId'); localStorage.removeItem('kkUsername'); } catch (e) {} displayMessage(authMessage, response.message || "重新认证失败，请重新登录。", true); showView('loginRegisterView'); updateVoiceButtonStates(); } }); } else { console.log('[INIT] No stored user ID found. Showing login/register.'); showView('loginRegisterView'); updateVoiceButtonStates(); } }
+
 function setupEventListeners() {
     if(registerButton) registerButton.addEventListener('click', handleRegister);
     if(loginButton) loginButton.addEventListener('click', handleLogin);
@@ -656,7 +650,7 @@ function setupEventListeners() {
         pushToTalkButton.addEventListener('touchcancel', (e) => { e.preventDefault(); stopPushToTalk(); });
     }
 
-    if (roomView) { 
+    if (roomView) {
         roomView.addEventListener('click', function(event) {
             const buttonElement = event.target.closest('button');
             if (!buttonElement) return;
@@ -668,10 +662,10 @@ function setupEventListeners() {
             }
 
             if (currentView === 'roomView') {
-                // No specific filtering needed here if switch handles all valid buttons
+                // Main game actions
             } else if (currentView === 'gameOverOverlay') {
                 if (buttonId !== 'backToLobbyButton') {
-                    console.warn(`Button click for ${buttonId} ignored, gameOverOverlay is active, only backToLobbyButton allowed.`);
+                    console.warn(`Button click for ${buttonId} ignored, gameOverOverlay is active.`);
                     return;
                 }
             } else {
@@ -680,27 +674,13 @@ function setupEventListeners() {
             }
             
             switch (buttonId) {
-                case 'readyButton':
-                    if (currentView === 'roomView') handleReadyClick();
-                    break;
-                case 'leaveRoomButton':
-                    if (currentView === 'roomView') handleGameLeave();
-                    break;
-                case 'sortHandButton':
-                    if (currentView === 'roomView') handleSortHand();
-                    break;
-                case 'playSelectedCardsButton':
-                    if (currentView === 'roomView') handlePlaySelectedCards();
-                    break;
-                case 'passTurnButton':
-                    if (currentView === 'roomView') handlePassTurn();
-                    break;
-                case 'hintButton':
-                    if (currentView === 'roomView') handleHint();
-                    break;
-                case 'backToLobbyButton': 
-                    if (currentView === 'gameOverOverlay') handleReturnToLobby();
-                    break;
+                case 'readyButton': handleReadyClick(); break;
+                case 'leaveRoomButton': handleGameLeave(); break;
+                case 'sortHandButton': handleSortHand(); break;
+                case 'playSelectedCardsButton': handlePlaySelectedCards(); break;
+                case 'passTurnButton': handlePassTurn(); break;
+                case 'hintButton': handleHint(); break;
+                case 'backToLobbyButton': handleReturnToLobby(); break;
             }
         });
     }
@@ -716,8 +696,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
 
-    setupEventListeners(); 
-    updateVoiceButtonStates();
+    setupEventListeners();
+    updateVoiceButtonStates(); // Set initial state of voice buttons
 
     if (socket.connected) {
         console.log("[INIT] Socket already connected on DOMContentLoaded.");
@@ -728,5 +708,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     console.log('Client setup complete.');
 });
-
---- END OF FILE client.js ---
