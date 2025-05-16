@@ -12,7 +12,7 @@ const io = new Server(server);
 
 app.disable('x-powered-by'); // <<< 添加这一行
 
-const PORT = process.env.PORT || 38857;
+const PORT = process.env.PORT || 23502;
 
 console.log("--- [SERVER] Startup Configuration ---");
 console.log(`Initial process.env.PORT: ${process.env.PORT}`);
