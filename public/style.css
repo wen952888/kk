@@ -1,5 +1,7 @@
+--- START OF FILE style.css ---
+
 /* public/style.css */
-/* ... (之前的 login/lobby/general view styles - 保持不变) ... */
+/* ... (所有之前的CSS内容保持不变) ... */
 html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #e0e0e0; color: #333; font-size: 16px; -webkit-tap-highlight-color: transparent; }
 .hidden-view { display: none !important; } .view-block { display: block !important; } .view-flex { display: flex !important; flex-direction: column; } .overlay.view-flex { justify-content: center; align-items: center; }
 .view { background-color: #f5f5f5; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 10px; margin: 20px auto; padding: 25px; box-sizing: border-box; }
@@ -21,7 +23,7 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 .message.error { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
 .message.success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
 
-/* --- Game View Layout (Copied from previous complete version, with selected card z-index fix) --- */
+/* --- Game View Layout --- */
 #roomView { width: 100%; height: 100%; padding: 0; background-color: transparent; display: flex; flex-direction: column;}
 #gameArea { flex-grow: 1; position: relative; padding-top: 45px; padding-bottom: 25px; box-sizing: border-box; background-color: #e0e0e0; overflow: hidden; }
 #gameInfoBar { display: flex; justify-content: space-between; align-items: center; padding: 0 10px; font-size: 0.9em; color: #444; position: absolute; top: 0; left: 0; right: 0; height: 40px; line-height: 40px; z-index: 300; background-color: rgba(240, 240, 240, 0.9); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
@@ -72,46 +74,37 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 /* My Hand Specific Card Interaction & Overlap */
 #myHand.myHand .card {
     position: relative; transform-origin: bottom center; cursor: pointer;
-    /* z-index is initially set by JS for sort order (0, 1, 2...). CSS overrides for states. */
-    margin-left: -110px; /* Default: 150px card width - 110px = 40px visible */
+    margin-left: -110px; 
 }
 #myHand.myHand .card:first-child { margin-left: 0; }
 
-#myHand.myHand .card:hover { /* For cards NOT selected */
-    transform: translateY(-30px) scale(1.07);
-    z-index: 200 !important; /* Hovered non-selected cards */
-    box-shadow: 3px 3px 8px rgba(0,0,0,0.2);
-}
-
-#myHand.myHand .card.selected {
-    border: 3px solid #007bff;
-    transform: translateY(-35px) scale(1.08) !important; /* Selected card transform */
-    z-index: 990 !important; /* Selected cards are on top of most things */
-    box-shadow: 2px 3px 7px rgba(0,0,0,0.2);
-}
-
-#myHand.myHand .card.selected:hover {
-    /* Further transform for a selected card that is ALSO hovered */
-    transform: translateY(-40px) scale(1.12) !important;
-    z-index: 999 !important; /* Absolutely on top when selected and hovered */
-}
-
-#myHand.myHand .card.hinted {
-    border: 3px dashed orange;
-    /* Base hinted transform. If also selected, .selected transform takes precedence. */
-    /* If also hovered (not selected), .card:hover transform takes precedence. */
-    transform: translateY(-15px); /* This transform might be overridden if also selected or hovered due to specificity or !important */
-    z-index: 150 !important; /* Hinted cards above base, below general hover, well below selected */
-}
-/* Note: If a card is .hinted.selected, .selected styles (border, z-index, transform) will dominate. */
-/* If a card is .hinted:hover (and not selected), .card:hover styles (transform, z-index) will dominate .hinted. */
-
-
 #myHand.myHand .card.disabled {
-    opacity: 0.6; cursor: not-allowed;
+    opacity: 0.6;
+    cursor: not-allowed;
     transform: translateY(0) !important;
     box-shadow: 1px 1px 2px rgba(0,0,0,0.08);
-    z-index: 10 !important; /* Disabled cards are at the bottom of interactive stack */
+    z-index: 10 !important; 
+    border: 1px solid #a0a0a0 !important; 
+}
+#myHand.myHand .card:not(.disabled):hover {
+    transform: translateY(-30px) scale(1.07);
+    z-index: 200 !important; 
+    box-shadow: 3px 3px 8px rgba(0,0,0,0.2);
+}
+#myHand.myHand .card.selected:not(.disabled) {
+    border: 3px solid #007bff;
+    transform: translateY(-35px) scale(1.08) !important; 
+    z-index: 990 !important; 
+    box-shadow: 2px 3px 7px rgba(0,0,0,0.2);
+}
+#myHand.myHand .card.selected:not(.disabled):hover {
+    transform: translateY(-40px) scale(1.12) !important;
+    z-index: 999 !important; 
+}
+#myHand.myHand .card.hinted:not(.disabled) {
+    border: 3px dashed orange;
+    transform: translateY(-15px); 
+    z-index: 150 !important; 
 }
 
 
@@ -126,11 +119,42 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 .hand-count-display { font-size: 0.7em; color: #fff; background-color: rgba(0,0,0,0.7); padding: 1px 4px; border-radius: 6px; z-index: 160; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
 .opponent-left .hand-count-display, .opponent-right .hand-count-display { bottom: auto; top: calc(100% - 10px); }
 
+/* Voice Control Styles */
+#voiceControlsContainer {
+    /* order: 4; /* 如果和 my-actions-container 同级，可以用 order 控制顺序 */
+    margin-top: 5px; /* 与其他按钮组的间距 */
+}
+#voiceControlsContainer button {
+    min-width: 70px; /* 调整按钮宽度 */
+    height: 30px;
+    font-size: 0.75em;
+    border-radius: 3px;
+    padding: 0 5px;
+    background-color: #6c757d; /* 语音按钮用不同颜色区分 */
+    border: 1px solid #5a6268;
+    color: white;
+}
+#voiceControlsContainer button:hover:not(:disabled) {
+    background-color: #545b62;
+    border-color: #4e555b;
+}
+#voiceControlsContainer button:disabled {
+    background-color: #adb5bd;
+    border-color: #9fa6ac;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+#pushToTalkButton.ptt-active { /* 按下说话时的样式 */
+    background-color: #28a745; /* 例如绿色 */
+    border-color: #1e7e34;
+}
+
+
 @media (max-height: 600px), (max-width: 700px) {
     #gameArea { padding-top: 35px; padding-bottom: 20px; }
     #gameInfoBar { height: 30px; font-size:0.8em; }
     .card { width: 120px; height: 168px; font-size: 1.1em; }
-    #myHand.myHand .card { margin-left: -90px; } /* 120px card width - 90px = 30px visible */
+    #myHand.myHand .card { margin-left: -90px; } 
     #centerPileArea .card { width: 120px; height: 168px; font-size: 1.1em; }
     #myHand.playerCards.myHand { min-height: 190px; }
     #centerArea { min-height: 190px; }
@@ -138,6 +162,7 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
     .opponentHand .card { width: 40px; height: 56px; }
     .opponentHand { height: 65px; }
     .my-actions-container button { min-width: 40px; height: 28px; font-size: 0.7em;}
+    #voiceControlsContainer button { min-width: 60px; height: 28px; font-size: 0.7em; }
     .player-avatar { width: 26px; height: 26px; }
     #gameStatusDisplay { font-size: 0.65em; padding: 1px 5px; bottom: 2px;}
     .hand-count-display { font-size: 0.65em; bottom: -5px; }
@@ -147,11 +172,12 @@ button:disabled { background-color: #ccc; cursor: not-allowed; color: #666; }
 
 @media (max-width: 600px) {
     .card { width: 90px; height: 126px; font-size: 0.9em; }
-    #myHand.myHand .card { margin-left: -60px; } /* MODIFIED: 90px card width - 60px = 30px visible */
+    #myHand.myHand .card { margin-left: -60px; } 
     #centerPileArea .card { width: 90px; height: 126px; font-size: 0.9em; }
     #myHand.playerCards.myHand { min-height: 145px; }
     #centerArea { top: 42%; min-height: 150px; }
     #centerPileArea { min-height: 140px; }
     .opponentHand .card { width: 35px; height: 49px; }
     .opponentHand { height: 60px; }
+    #voiceControlsContainer button { font-size: 0.65em; min-width: 55px; height: 26px;}
 }
