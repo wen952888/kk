@@ -1,3 +1,5 @@
+--- START OF FILE client.js ---
+
 // public/client.js
 const socket = io({
     reconnectionAttempts: 5,
@@ -23,12 +25,6 @@ let peerConnections = {}; // { 'otherUserId': RTCPeerConnection }
 const RTC_CONFIGURATION = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        // Example TURN server (replace with your own if needed for NAT traversal)
-        // {
-        //   urls: 'turn:your.turn.server.com:3478',
-        //   username: 'yourUsername',
-        //   credential: 'yourPassword'
-        // }
     ]
 };
 let isVoiceChatEnabled = false;
@@ -78,7 +74,6 @@ const gameOverReason = document.getElementById('gameOverReason');
 const gameOverScores = document.getElementById('gameOverScores');
 const backToLobbyButton = document.getElementById('backToLobbyButton');
 
-// WebRTC DOM Elements - Ensure these are defined in your HTML
 const voiceControlsContainer = document.getElementById('voiceControlsContainer');
 const toggleVoiceChatButton = document.getElementById('toggleVoiceChatButton');
 const pushToTalkButton = document.getElementById('pushToTalkButton');
@@ -162,7 +157,7 @@ async function startLocalAudio() {
         return true;
     } catch (error) {
         console.error('[VOICE] Error accessing microphone:', error);
-        const msgElement = document.getElementById('gameStatusDisplay') || authMessage; 
+        const msgElement = document.getElementById('gameStatusDisplay') || authMessage;
         if (msgElement) displayMessage(msgElement, '麦克风权限获取失败。', true);
         localStream = null;
         return false;
@@ -230,7 +225,7 @@ function createPeerConnection(targetUserId) {
     }
 
     pc.oniceconnectionstatechange = () => {
-        if (!peerConnections[targetUserId]) return; 
+        if (!peerConnections[targetUserId]) return;
         console.log(`[VOICE] ICE connection state for ${targetUserId}: ${pc.iceConnectionState}`);
         if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
             console.warn(`[VOICE] Connection with ${targetUserId} ${pc.iceConnectionState}. Cleaning up.`);
@@ -413,7 +408,13 @@ function renderPlayerCards(containerParam, playerData, isMe, isMyTurnAndPlaying)
         targetContainer = document.getElementById('myHand');
         if (!targetContainer) { console.error("[DEBUG] renderPlayerCards: #myHand NOT FOUND!"); return; }
         targetContainer.innerHTML = '';
-        if (playerData.hand === undefined && !playerData.finished && isMe) { console.warn("[DEBUG] renderPlayerCards: My hand is undefined, cannot render."); return; }
+        // Check if hand is undefined AND player is not finished AND it's me
+        if (playerData.hand === undefined && !playerData.finished && isMe) {
+            console.warn(`[DEBUG] renderPlayerCards: My hand is undefined for user ${playerData.username}, cannot render cards.`);
+            // Optionally display a message in the hand area
+            targetContainer.innerHTML = '<span style="color:#FF0000; font-style:italic;">手牌数据错误!</span>';
+            return;
+        }
     }  else {
         targetContainer = containerParam;
         if (!targetContainer) { console.error(`[DEBUG] renderPlayerCards for OPPONENT (${playerData.username}): Passed container is null.`); return; }
@@ -426,7 +427,10 @@ function renderPlayerCards(containerParam, playerData, isMe, isMyTurnAndPlaying)
         if (playerData.finished) {
             targetContainer.innerHTML = '<span style="color:#888; font-style:italic;">已出完</span>';
         } else if (sortedHand.length === 0) {
-            targetContainer.innerHTML = '<span style="color:#555; font-style:italic;">- 无手牌 -</span>';
+            // Only show "无手牌" if hand is an empty array, not if it's undefined (which is handled above)
+            if (playerData.hand !== undefined) {
+                targetContainer.innerHTML = '<span style="color:#555; font-style:italic;">- 无手牌 -</span>';
+            }
         } else {
             if (currentSortMode === 'rank') sortedHand.sort(compareSingleCardsClient);
             else sortedHand.sort(compareBySuitThenRank);
@@ -534,12 +538,154 @@ socket.on('disconnect', (reason) => { console.log('[NET] Disconnected from serve
 socket.on('connect_error', (err) => { console.error('[NET] Connection Error:', err.message); if (isVoiceChatEnabled) { disableVoiceChatFeatures(true); } if (currentView !== 'loginRegisterView' && currentView !== 'loadingView') { showView('loadingView'); displayMessage(loadingView.querySelector('p'), `连接错误: ${err.message}. 请检查网络并刷新。`, true); } });
 socket.on('roomListUpdate', (rooms) => { if (currentView === 'lobbyView') { renderRoomList(rooms); } });
 socket.on('playerReadyUpdate', ({ userId, isReady }) => { console.log(`[EVENT] playerReadyUpdate: User ${userId}, Ready: ${isReady}`); if (currentGameState && currentView === 'roomView') { const player = currentGameState.players.find(p => p.userId === userId); if (player) { player.isReady = isReady; if (userId === myUserId) isReadyForGame = isReady; } renderRoomView(currentGameState); } });
-socket.on('playerJoined', (newPlayerInfo) => { console.log(`[EVENT] Player joined: ${newPlayerInfo.username}`); if (currentView === 'roomView' && currentGameState) { previousGameState = JSON.parse(JSON.stringify(currentGameState)); const existingPlayer = currentGameState.players.find(p => p.userId === newPlayerInfo.userId); if (existingPlayer) { Object.assign(existingPlayer, newPlayerInfo, {connected: true});} else { currentGameState.players.push({ ...newPlayerInfo, score:0, hand:undefined, handCount:0, role:null, finished:false, connected:true }); currentGameState.players.sort((a,b) => a.slot - b.slot); } renderRoomView(currentGameState); displayMessage(document.getElementById('gameStatusDisplay'), `${newPlayerInfo.username} 加入了房间。`, false, true); if (isVoiceChatEnabled && newPlayerInfo.userId !== myUserId && newPlayerInfo.connected) { console.log(`[VOICE] New player ${newPlayerInfo.username} joined. Making call (voice chat enabled).`); makeCall(newPlayerInfo.userId); } } else if (currentView === 'roomView' && !currentGameState) { socket.emit('requestGameState', (state) => { if(state) { currentGameState = state; renderRoomView(state); } }); } });
-socket.on('playerLeft', ({ userId, username, reason }) => { console.log(`[EVENT] Player left: ${username}, Reason: ${reason}`); if (currentGameState && currentView === 'roomView') { closePeerConnection(userId); const playerIdx = currentGameState.players.findIndex(p => p.userId === userId); if (playerIdx > -1) { currentGameState.players.splice(playerIdx, 1); } renderRoomView(currentGameState); displayMessage(document.getElementById('gameStatusDisplay'), `${username} ${reason === 'disconnected' ? '断线了' : '离开了房间'}。`, true); } });
-socket.on('playerReconnected', (reconnectedPlayerInfo) => { console.log(`[EVENT] Player reconnected: ${reconnectedPlayerInfo.username}`); if (currentView === 'roomView' && currentGameState) { previousGameState = JSON.parse(JSON.stringify(currentGameState)); const player = currentGameState.players.find(p => p.userId === reconnectedPlayerInfo.userId); if (player) { Object.assign(player, reconnectedPlayerInfo, {connected: true});} else { currentGameState.players.push({ ...reconnectedPlayerInfo, score:0, hand:undefined, handCount:0, role:null, finished:false, connected:true }); currentGameState.players.sort((a,b) => a.slot - b.slot); } renderRoomView(currentGameState); displayMessage(document.getElementById('gameStatusDisplay'), `${reconnectedPlayerInfo.username} 重新连接。`, false, true); if (isVoiceChatEnabled && reconnectedPlayerInfo.userId !== myUserId && reconnectedPlayerInfo.connected) { console.log(`[VOICE] Player ${reconnectedPlayerInfo.username} reconnected. Making call.`); makeCall(reconnectedPlayerInfo.userId); } } else if (currentView === 'roomView' && !currentGameState) { socket.emit('requestGameState', (state) => { if(state) { currentGameState = state; renderRoomView(state); } }); } });
-socket.on('gameStarted', (initialGameState) => { console.log(`[EVENT] gameStarted received for room ${initialGameState.roomId}. My current room: ${currentRoomId}`); if (currentView !== 'roomView' || currentRoomId !== initialGameState.roomId) { console.warn("[DEBUG] gameStarted: Not in the correct view or room. IGNORED."); return; } const myInitialPlayerState = initialGameState.players.find(p => p.userId === myUserId); console.log('[DEBUG] gameStarted: My hand in initialGameState:', myInitialPlayerState?.hand?.length); previousGameState = currentGameState ? JSON.parse(JSON.stringify(currentGameState)) : null; currentGameState = initialGameState; const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (gameStatusDisp) displayMessage(gameStatusDisp, '游戏开始！祝你好运！', false, true); selectedCards = []; clearHintsAndSelection(true); console.log('[DEBUG] gameStarted: Calling full renderRoomView.'); renderRoomView(currentGameState); if (isVoiceChatEnabled) { console.log("[VOICE] Game started. Re-initializing voice connections for current players."); disableVoiceChatFeatures(false); setTimeout(() => enableVoiceChatFeatures(), 200); 
-    } else { updateVoiceButtonStates(); } });
-socket.on('gameStateUpdate', (newState) => { if (currentView !== 'roomView' || !currentGameState || currentRoomId !== newState.roomId) { console.warn("[DEBUG] gameStateUpdate: Ignoring, not in room view or state mismatch."); return; } previousGameState = JSON.parse(JSON.stringify(currentGameState)); currentGameState = newState; const myNewPlayerState = currentGameState.players.find(p => p.userId === myUserId); if (myNewPlayerState) { if (myNewPlayerState.hand !== undefined) { if (!myNewPlayerState.finished) { /* console.log(`[DEBUG] My hand updated by server`); */ } } else if (myNewPlayerState.handCount === 0 && !myNewPlayerState.finished) { myNewPlayerState.hand = []; } } if (previousGameState.currentPlayerId === myUserId && currentGameState.currentPlayerId !== myUserId) { selectedCards = []; clearHintsAndSelection(true); } else if (currentGameState.currentPlayerId === myUserId && !currentGameState.lastHandInfo && previousGameState.lastHandInfo) { selectedCards = []; clearHintsAndSelection(true); } renderRoomView(currentGameState); });
+socket.on('playerJoined', (newPlayerInfo) => {
+    console.log(`[EVENT] Player joined: ${newPlayerInfo.username}`);
+    if (currentView === 'roomView' && currentGameState) {
+        previousGameState = JSON.parse(JSON.stringify(currentGameState)); // Deep copy
+        const existingPlayer = currentGameState.players.find(p => p.userId === newPlayerInfo.userId);
+        if (existingPlayer) {
+            Object.assign(existingPlayer, newPlayerInfo, { connected: true });
+        } else {
+            currentGameState.players.push({ ...newPlayerInfo, score: 0, hand: undefined, handCount: 0, role: null, finished: false, connected: true });
+            currentGameState.players.sort((a, b) => a.slot - b.slot);
+        }
+        renderRoomView(currentGameState); // Render with updated player list
+        displayMessage(document.getElementById('gameStatusDisplay'), `${newPlayerInfo.username} 加入了房间。`, false, true);
+
+        if (isVoiceChatEnabled && newPlayerInfo.userId !== myUserId && newPlayerInfo.connected) {
+            console.log(`[VOICE] New player ${newPlayerInfo.username} joined. Making call.`);
+            makeCall(newPlayerInfo.userId);
+        }
+    } else if (currentView === 'roomView' && !currentGameState) {
+        socket.emit('requestGameState', (state) => { if(state) { currentGameState = state; renderRoomView(state); } });
+    }
+});
+socket.on('playerLeft', ({ userId, username, reason }) => {
+    console.log(`[EVENT] Player left: ${username}, Reason: ${reason}`);
+    if (currentView === 'roomView' && currentGameState) {
+        closePeerConnection(userId); // Close WebRTC for the player who left
+        
+        // It's generally safer to let the server send a full gameStateUpdate
+        // to reflect player removal, rather than client-side splicing which might miss nuances.
+        // For now, we'll mark as disconnected and re-render.
+        // The server should ideally send a new gameState that doesn't include this player,
+        // or marks them as disconnected with handCount: 0.
+        const playerInState = currentGameState.players.find(p => p.userId === userId);
+        if (playerInState) {
+            playerInState.connected = false;
+            // playerInState.hand = undefined; // Server should be source of truth for hand removal
+            // playerInState.handCount = 0;
+        }
+        // If server sends gameStateUpdate after playerLeft, that will be the authority.
+        // If not, this renderRoomView will show the player as disconnected.
+        renderRoomView(currentGameState);
+        displayMessage(document.getElementById('gameStatusDisplay'), `${username} ${reason === 'disconnected' ? '断线了' : '离开了房间'}。`, true);
+    }
+});
+socket.on('playerReconnected', (reconnectedPlayerInfo) => {
+    console.log(`[EVENT] Player reconnected: ${reconnectedPlayerInfo.username}`);
+    if (currentView === 'roomView' && currentGameState) {
+        previousGameState = JSON.parse(JSON.stringify(currentGameState));
+        const player = currentGameState.players.find(p => p.userId === reconnectedPlayerInfo.userId);
+        if (player) {
+            Object.assign(player, reconnectedPlayerInfo, { connected: true });
+            // Server's gameStateUpdate should provide the hand if it was a game in progress
+        } else {
+            // This shouldn't happen if player was already in game state, server should update existing
+            currentGameState.players.push({ ...reconnectedPlayerInfo, score:0, hand:undefined, handCount:0, role:null, finished:false, connected:true });
+            currentGameState.players.sort((a,b) => a.slot - b.slot);
+        }
+        renderRoomView(currentGameState);
+        displayMessage(document.getElementById('gameStatusDisplay'), `${reconnectedPlayerInfo.username} 重新连接。`, false, true);
+
+        if (isVoiceChatEnabled && reconnectedPlayerInfo.userId !== myUserId && reconnectedPlayerInfo.connected) {
+            console.log(`[VOICE] Player ${reconnectedPlayerInfo.username} reconnected. Making call.`);
+            makeCall(reconnectedPlayerInfo.userId);
+        }
+    } else if (currentView === 'roomView' && !currentGameState) {
+        socket.emit('requestGameState', (state) => { if(state) { currentGameState = state; renderRoomView(state); } });
+    }
+});
+socket.on('gameStarted', (initialGameState) => {
+    console.log(`[EVENT] gameStarted received for room ${initialGameState.roomId}. My current room: ${currentRoomId}`);
+    if (currentView !== 'roomView' || currentRoomId !== initialGameState.roomId) {
+        console.warn("[DEBUG] gameStarted: Not in the correct view or room. IGNORED.");
+        return;
+    }
+    const myInitialPlayerState = initialGameState.players.find(p => p.userId === myUserId);
+    console.log('[DEBUG] gameStarted: My hand in initialGameState:', myInitialPlayerState?.hand?.length); // Log length if hand exists
+
+    previousGameState = currentGameState ? JSON.parse(JSON.stringify(currentGameState)) : null;
+    currentGameState = initialGameState; // Authoritative state from server
+
+    const gameStatusDisp = document.getElementById('gameStatusDisplay');
+    if (gameStatusDisp) displayMessage(gameStatusDisp, '游戏开始！祝你好运！', false, true);
+    selectedCards = [];
+    clearHintsAndSelection(true);
+    console.log('[DEBUG] gameStarted: Calling full renderRoomView.');
+    renderRoomView(currentGameState);
+
+    if (isVoiceChatEnabled) {
+        console.log("[VOICE] Game started. Re-initializing voice connections for current players.");
+        disableVoiceChatFeatures(false); // Clear old connections from waiting room
+        setTimeout(() => { // Short delay to allow DOM updates if any from renderRoomView
+            if (currentView === 'roomView' && currentGameState?.status === 'playing') { // Ensure still in playing state
+                enableVoiceChatFeatures(); // Connect to current game players
+            }
+        }, 200);
+    } else {
+        updateVoiceButtonStates();
+    }
+});
+socket.on('gameStateUpdate', (newState) => {
+    if (currentView !== 'roomView' || !currentGameState || currentRoomId !== newState.roomId) {
+        console.warn("[DEBUG] gameStateUpdate: Ignoring, not in room view or state mismatch.");
+        return;
+    }
+    console.log('[DEBUG] Received gameStateUpdate. My user ID:', myUserId);
+    // console.log('[DEBUG] New state players:', JSON.stringify(newState.players.map(p => ({userId: p.userId, username: p.username, handCount: p.handCount, handDefined: p.hand !== undefined}))));
+
+
+    previousGameState = JSON.parse(JSON.stringify(currentGameState));
+    currentGameState = newState; // Authoritative state from server
+
+    const myNewPlayerState = currentGameState.players.find(p => p.userId === myUserId);
+
+    if (myNewPlayerState) {
+        console.log(`[DEBUG] My player state in new GS: username=${myNewPlayerState.username}, handCount=${myNewPlayerState.handCount}, handIsDefined=${myNewPlayerState.hand !== undefined}, finished=${myNewPlayerState.finished}`);
+        if (myNewPlayerState.hand === undefined && !myNewPlayerState.finished && myNewPlayerState.handCount > 0) {
+            console.error(`[CRITICAL] My hand is UNDEFINED in incoming gameStateUpdate, but handCount is ${myNewPlayerState.handCount} and not finished. Server needs to send hand!`);
+            // Attempt to restore from previous state if this happens - this is a PATCH for server issue
+            if (previousGameState) {
+                const myOldPlayerState = previousGameState.players.find(p => p.userId === myUserId);
+                if (myOldPlayerState && myOldPlayerState.hand) {
+                    console.warn("[PATCH] Restoring my hand from previousGameState as it was undefined in update.");
+                    myNewPlayerState.hand = myOldPlayerState.hand; // This might be stale
+                } else {
+                     console.error("[PATCH-FAIL] Could not restore hand from previous state.");
+                }
+            }
+        } else if (myNewPlayerState.hand === undefined && myNewPlayerState.handCount === 0 && !myNewPlayerState.finished) {
+            // If hand is undefined but count is 0, assume it's an empty hand.
+            console.log("[DEBUG] My hand is undefined but handCount is 0. Setting to empty array.");
+            myNewPlayerState.hand = [];
+        }
+        // If myNewPlayerState.hand is defined, it's used directly.
+        // If myNewPlayerState.finished is true, hand content doesn't matter as much for rendering self cards.
+    } else {
+        console.error("[CRITICAL] My player data not found in incoming gameStateUpdate!");
+    }
+
+
+    if (previousGameState.currentPlayerId === myUserId && currentGameState.currentPlayerId !== myUserId) {
+        selectedCards = [];
+        clearHintsAndSelection(true);
+    } else if (currentGameState.currentPlayerId === myUserId && !currentGameState.lastHandInfo && previousGameState.lastHandInfo) {
+        selectedCards = [];
+        clearHintsAndSelection(true);
+    }
+    renderRoomView(currentGameState);
+});
 socket.on('invalidPlay', ({ message }) => { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (gameStatusDisp) displayMessage(gameStatusDisp, `操作无效: ${message}`, true); if (currentGameState && currentGameState.status === 'playing' && currentGameState.currentPlayerId === myUserId) { updateRoomControls(currentGameState); } });
 socket.on('gameOver', (results) => { if (currentView === 'roomView' && results && currentRoomId === results.roomId) { console.log('Game Over event received:', results); if (currentGameState) { currentGameState.status = 'finished'; if(results.finalScores) currentGameState.finalScores = results.finalScores; if(results.scoreChanges) currentGameState.scoreChanges = results.scoreChanges; if(results.result) currentGameState.gameResultText = results.result; } showGameOver(results); } else if (currentView === 'roomView' && !results && currentGameState && currentGameState.roomId === currentRoomId) { console.log('Game Over event received (no detailed results). Using current state.'); showGameOver(currentGameState); } else { console.warn("Received gameOver for a room I'm not in/viewing. My room:", currentRoomId, "Results:", results); } });
 socket.on('gameStartFailed', ({ message }) => { const gameStatusDisp = document.getElementById('gameStatusDisplay'); if (currentView === 'roomView' && gameStatusDisp) { displayMessage(gameStatusDisp, `游戏开始失败: ${message}`, true); if (currentGameState) { currentGameState.players.forEach(p => p.isReady = false); isReadyForGame = false; renderRoomView(currentGameState); } } });
@@ -614,7 +760,7 @@ socket.on('webrtc-ice-candidate', async (data) => {
             if (!error.message.includes("remote description is set") &&
                 !error.message.includes("connection is closed") &&
                 !error.message.includes("Candidate cannot be added before setRemoteDescription") &&
-                !error.message.includes("Error processing ICE candidate")) { // Some browsers might have slightly different error messages
+                !error.message.includes("Error processing ICE candidate")) {
                  console.error(`[VOICE] Error adding ICE candidate from ${fromUserId}:`, error.message);
             }
         }
@@ -662,13 +808,14 @@ function setupEventListeners() {
             }
 
             if (currentView === 'roomView') {
-                // Main game actions
+                // Main game actions will be handled by switch
             } else if (currentView === 'gameOverOverlay') {
                 if (buttonId !== 'backToLobbyButton') {
                     console.warn(`Button click for ${buttonId} ignored, gameOverOverlay is active.`);
                     return;
                 }
             } else {
+                // If not in a game-related view, these buttons shouldn't be active/visible anyway
                 console.warn(`Button click for ${buttonId} ignored, current view is ${currentView}.`);
                 return;
             }
@@ -697,7 +844,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.style.overflow = 'hidden';
 
     setupEventListeners();
-    updateVoiceButtonStates(); // Set initial state of voice buttons
+    updateVoiceButtonStates(); 
 
     if (socket.connected) {
         console.log("[INIT] Socket already connected on DOMContentLoaded.");
