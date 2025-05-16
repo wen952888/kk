@@ -1,5 +1,3 @@
---- START OF FILE client.js ---
-
 // public/client.js
 const socket = io({
     reconnectionAttempts: 5,
